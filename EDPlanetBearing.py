@@ -7,11 +7,27 @@ def callback():
     root.destroy()
     exit()
 
+def resize(root, h):
+    #Creating window parameters
+    w = 159 # width for the Tk root
+    #h = 40 # height for the Tk root
+    # get screen width and height
+    ws = root.winfo_screenwidth() # width of the screen
+    hs = root.winfo_screenheight() # height of the screen
+
+    # calculate x and y coordinates for the Tk root window
+    x = (ws/2) - (w/2)
+    y = (hs/100)# - (h/2)
+
+    # set the dimensions of the screen
+    # and where it is placed
+    root.geometry('%dx%d+%d+%d' % (w, h, x, y))
+
 def calculate():
     #
     LeftArrow = ""
     RightArrow = ""
-    NoCoords = 0
+    global NoCoords
 
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
@@ -41,6 +57,13 @@ def calculate():
         CurrentLong = round(Status['Longitude'],4)
         CurrentHead = round(Status['Heading'],0)
         CurrentAlt = round(Status['Altitude'],0)
+
+        try:
+            DstLat
+            DstLong
+        except:
+            print("No Destination coords")
+            resize(root, 40)
 
         print("Current Lat: " + str(CurrentLat))
         print("Current Long: " + str(CurrentLong))
@@ -90,14 +113,22 @@ def calculate():
         DestHeadingL.set(LeftArrow)
         DestHeadingR.set(RightArrow)
         print("_" * 20)
+        resize(root, 80)
         NoCoords = 0
     except:
+        try:
+            NoCoords
+        except:
+            NoCoords = 0
         NoCoords += 1
         if NoCoords >= 10 :
             DestHeading.set("")
-        pass
+            DestHeadingL.set("")
+            DestHeadingR.set("")
+            resize(root, 37)
     finally:
         root.after(1000, calculate)
+        print("NoCoords: "+str(NoCoords))
 
 #Asking Windows Registry for the Saved Folders path.
 key = winreg.OpenKey(
@@ -186,20 +217,7 @@ CloseB.grid(column=9, row=1, sticky=(E))
 
 root.after(4000, calculate)
 
-#Creating window parameters
-w = 159 # width for the Tk root
-h = 80 # height for the Tk root
-# get screen width and height
-ws = root.winfo_screenwidth() # width of the screen
-hs = root.winfo_screenheight() # height of the screen
-
-# calculate x and y coordinates for the Tk root window
-x = (ws/2) - (w/2)
-y = (hs/100)# - (h/2)
-
-# set the dimensions of the screen
-# and where it is placed
-root.geometry('%dx%d+%d+%d' % (w, h, x, y))
+resize(root, 37)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 root.protocol("WM_DELETE_WINDOW", callback)
