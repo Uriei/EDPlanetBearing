@@ -8,6 +8,11 @@ def callback():
     exit()
 
 def calculate():
+    #
+    LeftArrow = ""
+    RightArrow = ""
+    NoCoords = 0
+
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
     Destination = str(DestinationRaw).split()
@@ -16,9 +21,10 @@ def calculate():
     print("Coords List: " + str(Destination))
 
     try:
-        DstLat = round(float(Destination[0]),4)
-        DstLong = round(float(Destination[1]),4)
-
+        DstLat = float(Destination[0])
+        DstLong = float(Destination[1])
+        if DstLat == -0:
+            DstLat = 0
     except:
         pass
 
@@ -45,8 +51,8 @@ def calculate():
 
         CurrentLatRad = math.radians(Status['Latitude'])
         CurrentLongRad = math.radians(Status['Longitude'])
-        DstLatRad = math.radians(float(Destination[0]))
-        DstLongRad = math.radians(float(Destination[1]))
+        DstLatRad = math.radians(float(DstLat))
+        DstLongRad = math.radians(float(DstLong))
 
         x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
         y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
@@ -54,11 +60,41 @@ def calculate():
         BearingDeg = math.degrees(BearingRad) # * 180 / math.pi
         Bearing = int((BearingDeg + 360) % 360)
 
-        print("Bearing: " + str(Bearing) + "°")
-        DestHeading.set(str(Bearing) + "°")
+        Direction = Bearing - CurrentHead
 
+        #This part is awful to see but does the job
+        #This calculates the amount of arrows to add to each side
+        if Direction > 180:
+            Direction = Direction - 360
+        if Direction < -2 and Direction > -180:
+            LeftArrow = "<"
+            if Direction < -20:
+                LeftArrow = "<<"
+            if Direction < -60:
+                LeftArrow = "<<<"
+        if Direction > 2 and Direction < 180:
+            RightArrow = ">"
+            if Direction > 20:
+                RightArrow = ">>"
+            if Direction > 60:
+                RightArrow = ">>>"
+        if Direction == 180 or Direction == -180:
+            LeftArrow = "<<<"
+            RightArrow = ">>>"
+
+        print("Direction: " + str(Direction) + "°")
+        print("Bearing: " + str(Bearing) + "°")
+        print(LeftArrow + RightArrow)
+
+        DestHeading.set(str(Bearing) + "°")
+        DestHeadingL.set(LeftArrow)
+        DestHeadingR.set(RightArrow)
         print("_" * 20)
+        NoCoords = 0
     except:
+        NoCoords += 1
+        if NoCoords >= 10 :
+            DestHeading.set("")
         pass
     finally:
         root.after(1000, calculate)
@@ -78,6 +114,7 @@ CurrentLat = 0.0
 CurrentLong = 0.0
 CurrentHead = 0
 CurrentAlt = 0
+NoCoords = 0
 
 #Creates the app window
 root = Tk()
@@ -125,6 +162,8 @@ style.theme_settings("EDBearing", {
 
 DestinationCoords = StringVar()
 DestHeading = StringVar()
+DestHeadingR = StringVar()
+DestHeadingL = StringVar()
 
 style.theme_use("EDBearing")
 root.title("EDPlanetBearing")
@@ -136,11 +175,13 @@ mainframe.rowconfigure(0, weight=1)
 
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
 coords_entry.grid(column=1, columnspan=8, row=1, sticky=(W, E))
-ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=8, row=2, sticky=(W, E))
+ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=4, columnspan=6, row=2, sticky=(W, E))
+ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=1, columnspan=3, row=2, sticky=(E))
+ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=8, columnspan=2, row=2, sticky=(W))
 coords_entry.focus()
 
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
-CloseB.grid(column=9, row=1, sticky=(W, E))
+CloseB.grid(column=9, row=1, sticky=(E))
 #CloseB.config(bg = "black")
 
 root.after(4000, calculate)
