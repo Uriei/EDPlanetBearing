@@ -63,7 +63,6 @@ def calculate():
     finally:
         root.after(1000, calculate)
 
-#
 #Asking Windows Registry for the Saved Folders path.
 key = winreg.OpenKey(
     winreg.HKEY_CURRENT_USER,
