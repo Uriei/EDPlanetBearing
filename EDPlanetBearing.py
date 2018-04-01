@@ -37,7 +37,6 @@ def calculate(event="None"):
     #
     LeftArrow = ""
     RightArrow = ""
-    global NoCoords
 
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
@@ -68,84 +67,101 @@ def calculate(event="None"):
     #Extracting the data from the journal and doing its magic.
     try:
         Status = json.loads(JournalContent)
-        #print(Status)  #Prints the whole Status.json
 
-        CurrentLat = round(Status['Latitude'],4)
-        CurrentLong = round(Status['Longitude'],4)
-        CurrentHead = round(Status['Heading'],0)
-        #CurrentAlt = round(Status['Altitude'],0)
+        StatusFlags = Status['Flags']
+
+        #Checking if coordinates are relevant or not
+        FlagDocked = StatusFlags & 1<<0
+        FlagLanded = StatusFlags & 1<<1
+        FlagNoCoords = 2097152 - (StatusFlags & (1<<21))
+
+        NoRun = FlagDocked+FlagNoCoords+FlagLanded
+        print("Flags:" + str(StatusFlags))
+        print("FlagDocked:" + str(FlagDocked))
+        print("FlagLanded:" + str(FlagLanded))
+        print("FlagNoCoords:" + str(FlagNoCoords))
+        print("NoRun:" + str(NoRun))
 
         try:
             DstLat
             DstLong
-        except:
+            try:
+                if NoRun != 0 :
+                    print("Coords irrelevant")
+                    resize(root, 40)
+                else:
+                    resize(root, 80)
+                    try:
+
+                        CurrentLat = round(Status['Latitude'],4)
+                        CurrentLong = round(Status['Longitude'],4)
+                        CurrentHead = round(Status['Heading'],0)
+                        CurrentAlt = round(Status['Altitude'],0)
+
+                        print("Coords relevant")
+                        print("Current Lat: " + str(CurrentLat))
+                        print("Current Long: " + str(CurrentLong))
+                        print("Current Heading: " + str(CurrentHead))
+                        print("Current Altitude: " + str(CurrentAlt))
+                        print("Destination Lat: " + str(DstLat))
+                        print("Destination Long: " + str(DstLong))
+
+                        CurrentLatRad = math.radians(Status['Latitude'])
+                        CurrentLongRad = math.radians(Status['Longitude'])
+                        DstLatRad = math.radians(float(DstLat))
+                        DstLongRad = math.radians(float(DstLong))
+
+                        x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
+                        y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
+                        BearingRad = math.atan2(y, x)
+                        BearingDeg = math.degrees(BearingRad)
+                        Bearing = int((BearingDeg + 360) % 360)
+
+                        Direction = Bearing - CurrentHead
+
+                        #This part is awful to see but does the job
+                        #This calculates the amount of arrows to add to each side
+                        if Direction > 180:
+                            Direction = Direction - 360
+                        if Direction < -2 and Direction > -180:
+                            LeftArrow = "<"
+                            if Direction < -20:
+                                LeftArrow = "<<"
+                            if Direction < -60:
+                                LeftArrow = "<<<"
+                        if Direction > 2 and Direction < 180:
+                            RightArrow = ">"
+                            if Direction > 20:
+                                RightArrow = ">>"
+                            if Direction > 60:
+                                RightArrow = ">>>"
+                        if Direction == 180 or Direction == -180:
+                            LeftArrow = "<<<"
+                            RightArrow = ">>>"
+
+                        print("Direction: " + str(Direction) + "°")
+                        print("Bearing: " + str(Bearing) + "°")
+                        print(LeftArrow + RightArrow)
+
+                        DestHeading.set(str(Bearing) + "°")
+                        DestHeadingL.set(LeftArrow)
+                        DestHeadingR.set(RightArrow)
+                    except Exception as e:
+                        print("E02: " + str(e))
+                    print("_" * 20)
+
+            except Exception as e:
+                print("E03: " + str(e))
+                print("Error on calculation")
+        except Exception as e:
+            print("E01: " + str(e))
             print("No Destination coords")
-            resize(root, 40)
-
-        print("Current Lat: " + str(CurrentLat))
-        print("Current Long: " + str(CurrentLong))
-        print("Current Heading: " + str(CurrentHead))
-        #print("Current Altitude: " + str(CurrentAlt))
-        print("Destination Lat: " + str(DstLat))
-        print("Destination Long: " + str(DstLong))
-
-        CurrentLatRad = math.radians(Status['Latitude'])
-        CurrentLongRad = math.radians(Status['Longitude'])
-        DstLatRad = math.radians(float(DstLat))
-        DstLongRad = math.radians(float(DstLong))
-
-        x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
-        y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
-        BearingRad = math.atan2(y, x)
-        BearingDeg = math.degrees(BearingRad) # * 180 / math.pi
-        Bearing = int((BearingDeg + 360) % 360)
-
-        Direction = Bearing - CurrentHead
-
-        #This part is awful to see but does the job
-        #This calculates the amount of arrows to add to each side
-        if Direction > 180:
-            Direction = Direction - 360
-        if Direction < -2 and Direction > -180:
-            LeftArrow = "<"
-            if Direction < -20:
-                LeftArrow = "<<"
-            if Direction < -60:
-                LeftArrow = "<<<"
-        if Direction > 2 and Direction < 180:
-            RightArrow = ">"
-            if Direction > 20:
-                RightArrow = ">>"
-            if Direction > 60:
-                RightArrow = ">>>"
-        if Direction == 180 or Direction == -180:
-            LeftArrow = "<<<"
-            RightArrow = ">>>"
-
-        print("Direction: " + str(Direction) + "°")
-        print("Bearing: " + str(Bearing) + "°")
-        print(LeftArrow + RightArrow)
-
-        DestHeading.set(str(Bearing) + "°")
-        DestHeadingL.set(LeftArrow)
-        DestHeadingR.set(RightArrow)
-        print("_" * 20)
-        resize(root, 80)
-        NoCoords = 0
-    except:
-        try:
-            NoCoords
-        except:
-            NoCoords = 0
-        NoCoords += 1
-        if NoCoords >= 10 :
             DestHeading.set("")
             DestHeadingL.set("")
             DestHeadingR.set("")
-            resize(root, 37)
-    finally:
-        #root.after(1000, calculate)
-        print("NoCoords: "+str(NoCoords))
+            resize(root, 40)
+    except Exception as e:
+        print("E04: " + str(e))
 
 
 #Asking Windows Registry for the Saved Folders path.
@@ -157,10 +173,8 @@ dir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
 
 eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
 JournalFile = eliteJournalPath + "Status.json"
-#print(JournalFile) #Prints the path to the file
 
 #watchdog
-
 event_handler = MyHandler()
 observer = Observer()
 observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
@@ -241,15 +255,11 @@ ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica
 
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=9, row=1, sticky=(E))
-#CloseB.config(bg = "black")
-
-#root.after(4000, calculate)
 
 resize(root, 37)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 root.protocol("WM_DELETE_WINDOW", callback)
-#root.wm_attributes('-toolwindow', True)
 root.attributes("-topmost", True)
 root.overrideredirect(True)
 root.mainloop()
