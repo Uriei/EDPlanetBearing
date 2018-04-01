@@ -244,6 +244,20 @@ mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 mainframe.columnconfigure(0, weight=1)
 mainframe.rowconfigure(0, weight=1)
 
+#Testing Window movement
+def dragwin(event):
+    x = mainframe.winfo_pointerx() - offsetx
+    y = mainframe.winfo_pointery() - offsety
+    root.geometry('+{x}+{y}'.format(x=x,y=y))
+
+def clickwin(event):
+    offsetx = event.x
+    offsety = event.y
+offsetx = 0
+offsety = 0
+mainframe.bind('<ButtonPress-1>',clickwin)
+mainframe.bind('<B1-Motion>',dragwin)
+
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
 coords_entry.grid(column=1, columnspan=8, row=1, sticky=(W, E))
 coords_entry.focus()
