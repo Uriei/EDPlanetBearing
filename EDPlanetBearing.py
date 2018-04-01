@@ -11,7 +11,7 @@ def callback():
     root.destroy()
     exit()
 
-def resize(root, h):
+def resize(root, h, StartingUp=False):
     #Creating window parameters
     w = 159 # width for the Tk root
     #h = 40 # height for the Tk root
@@ -19,15 +19,24 @@ def resize(root, h):
     ws = root.winfo_screenwidth() # width of the screen
     hs = root.winfo_screenheight() # height of the screen
 
-    # calculate x and y coordinates for the Tk root window
-    x = (ws/2) - (w/2)
-    y = (hs/100)# - (h/2)
+    try:
+        if StartingUp:
+            # calculate x and y coordinates for the Tk root window
+            x = (ws/2) - (w/2)
+            y = (hs/100)# - (h/2)
+        else:
+            x = root.winfo_rootx()
+            y = root.winfo_rooty()
 
-    # set the dimensions of the screen
-    # and where it is placed
-    root.geometry('%dx%d+%d+%d' % (w, h, x, y))
+        # set the dimensions of the screen
+        # and where it is placed
+        root.geometry('%dx%d+%d+%d' % (w, h, x, y))
+    except Exception as e:
+        print("E05: " + str(e))
+        print("Error on resizing")
 
-class MyHandler(FileSystemEventHandler):
+
+class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
         if "Status.json" in event.src_path:
             calculate()
@@ -175,7 +184,7 @@ eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
 JournalFile = eliteJournalPath + "Status.json"
 
 #watchdog
-event_handler = MyHandler()
+event_handler = JournalUpdate()
 observer = Observer()
 observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
 observer.start()
@@ -246,13 +255,18 @@ mainframe.rowconfigure(0, weight=1)
 
 #Testing Window movement
 def dragwin(event):
-    x = mainframe.winfo_pointerx() - offsetx
-    y = mainframe.winfo_pointery() - offsety
-    root.geometry('+{x}+{y}'.format(x=x,y=y))
+    global offx
+    global offy
+    offx = mainframe.winfo_pointerx() - offsetx
+    offy = mainframe.winfo_pointery() - offsety
+    root.geometry('+{x}+{y}'.format(x=offx,y=offy))
 
 def clickwin(event):
     offsetx = event.x
     offsety = event.y
+
+offx = 0
+offy = 0
 offsetx = 0
 offsety = 0
 mainframe.bind('<ButtonPress-1>',clickwin)
@@ -270,7 +284,7 @@ ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=9, row=1, sticky=(E))
 
-resize(root, 37)
+resize(root, 37, True)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 root.protocol("WM_DELETE_WINDOW", callback)
