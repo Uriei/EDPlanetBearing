@@ -1,9 +1,13 @@
 import json, math, winreg
 from tkinter import *
 from tkinter import ttk
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 #Definitions
 def callback():
+    observer.stop()
+    observer.join()
     root.destroy()
     exit()
 
@@ -23,7 +27,13 @@ def resize(root, h):
     # and where it is placed
     root.geometry('%dx%d+%d+%d' % (w, h, x, y))
 
-def calculate():
+class MyHandler(FileSystemEventHandler):
+    def on_modified(self, event):
+        if "Status.json" in event.src_path:
+            calculate()
+
+
+def calculate(event="None"):
     #
     LeftArrow = ""
     RightArrow = ""
@@ -35,6 +45,13 @@ def calculate():
     print("Typed Coords: " + DestinationCoords.get())
     print("Readable Coords: " + DestinationRaw)
     print("Coords List: " + str(Destination))
+
+
+    try:
+        if "Return" in event.keysym:
+            DestinationCoords.set(str(Destination[0]) + ", " + str(Destination[1]))
+    except:
+        pass
 
     try:
         DstLat = float(Destination[0])
@@ -56,7 +73,7 @@ def calculate():
         CurrentLat = round(Status['Latitude'],4)
         CurrentLong = round(Status['Longitude'],4)
         CurrentHead = round(Status['Heading'],0)
-        CurrentAlt = round(Status['Altitude'],0)
+        #CurrentAlt = round(Status['Altitude'],0)
 
         try:
             DstLat
@@ -68,7 +85,7 @@ def calculate():
         print("Current Lat: " + str(CurrentLat))
         print("Current Long: " + str(CurrentLong))
         print("Current Heading: " + str(CurrentHead))
-        print("Current Altitude: " + str(CurrentAlt))
+        #print("Current Altitude: " + str(CurrentAlt))
         print("Destination Lat: " + str(DstLat))
         print("Destination Long: " + str(DstLong))
 
@@ -127,8 +144,9 @@ def calculate():
             DestHeadingR.set("")
             resize(root, 37)
     finally:
-        root.after(1000, calculate)
+        #root.after(1000, calculate)
         print("NoCoords: "+str(NoCoords))
+
 
 #Asking Windows Registry for the Saved Folders path.
 key = winreg.OpenKey(
@@ -141,11 +159,19 @@ eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
 JournalFile = eliteJournalPath + "Status.json"
 #print(JournalFile) #Prints the path to the file
 
+#watchdog
+
+event_handler = MyHandler()
+observer = Observer()
+observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
+observer.start()
+
+#
 CurrentLat = 0.0
 CurrentLong = 0.0
 CurrentHead = 0
 CurrentAlt = 0
-NoCoords = 0
+
 
 #Creates the app window
 root = Tk()
@@ -206,16 +232,18 @@ mainframe.rowconfigure(0, weight=1)
 
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
 coords_entry.grid(column=1, columnspan=8, row=1, sticky=(W, E))
+coords_entry.focus()
+coords_entry.bind("<Return>", calculate)
+
 ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=4, columnspan=6, row=2, sticky=(W, E))
 ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=1, columnspan=3, row=2, sticky=(E))
 ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=8, columnspan=2, row=2, sticky=(W))
-coords_entry.focus()
 
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=9, row=1, sticky=(E))
 #CloseB.config(bg = "black")
 
-root.after(4000, calculate)
+#root.after(4000, calculate)
 
 resize(root, 37)
 
