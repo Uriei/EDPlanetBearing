@@ -56,16 +56,16 @@ def calculate(event="None"):
 
 
     try:
-        if "Return" in event.keysym:
-            DestinationCoords.set(str(Destination[0]) + ", " + str(Destination[1]))
+        DstLat = float(Destination[0])
+        DstLong = float(Destination[1])
+        if DstLat == -0:
+            DstLat = 0.0
     except:
         pass
 
     try:
-        DstLat = float(Destination[0])
-        DstLong = float(Destination[1])
-        if DstLat == -0:
-            DstLat = 0
+        if "Return" in event.keysym:
+            DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
     except:
         pass
 
