@@ -2,7 +2,7 @@
 
 This is an app to calculate the heading you need to follow to reach an specific point giving its coordinates on a planet in Elite Dangerous.
 
-Quick video example of what it does, the coordinates set are to a tip off I got.
+Quick video example of what it does (v0.5), the coordinates set are to a tip off I got.
 
 More info about the test in the video description.
 
