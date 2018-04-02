@@ -126,29 +126,45 @@ def calculate(event="None"):
                         BearingDeg = math.degrees(BearingRad)
                         Bearing = int((BearingDeg + 360) % 360)
 
-                        Direction = Bearing - CurrentHead
+                        #Direction = Bearing - CurrentHead
 
                         #This part is awful to see but does the job
                         #This calculates the amount of arrows to add to each side
-                        if Direction > 180:
-                            Direction = Direction - 360
-                        if Direction < -2 and Direction > -180:
+
+                        if CurrentHead < Bearing:
+                            CurrentHead += 360  # denormalize ...
+
+                        Direction = CurrentHead - Bearing   # calculate left turn, will allways be 0..359
+                        print("DirectionB: " + str(Direction) + "°")
+
+                        # take the smallest turn
+                        if Direction <= 1 or Direction >= 359:
+                            print("Going Forward")
+                            LeftArrow = ""
+                            RightArrow = ""
+                        elif Direction < 180:
+                            # Turn left : Direction degrees
+                            print("Going Left")
                             LeftArrow = "<"
-                            if Direction < -20:
+                            if Direction >= 30:
                                 LeftArrow = "<<"
-                            if Direction < -60:
+                            if Direction >= 90:
                                 LeftArrow = "<<<"
-                        if Direction > 2 and Direction < 180:
+                        elif Direction > 180:
+                            # Turn right : 360-Direction degrees
+                            print("Going Right")
+                            Direction = 360 - Direction
                             RightArrow = ">"
-                            if Direction > 20:
+                            if Direction >= 30:
                                 RightArrow = ">>"
-                            if Direction > 60:
+                            if Direction >= 90:
                                 RightArrow = ">>>"
-                        if Direction == 180 or Direction == -180:
+                        else:
+                            print("Going Backwards")
                             LeftArrow = "<<<"
                             RightArrow = ">>>"
 
-                        print("Direction: " + str(Direction) + "°")
+                        print("DirectionA: " + str(Direction) + "°")
                         print("Bearing: " + str(Bearing) + "°")
                         print(LeftArrow + RightArrow)
 
