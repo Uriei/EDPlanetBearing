@@ -271,18 +271,16 @@ mainframe.rowconfigure(0, weight=1)
 
 #Testing Window movement
 def dragwin(event):
-    global offx
-    global offy
-    offx = mainframe.winfo_pointerx() - offsetx
-    offy = mainframe.winfo_pointery() - offsety
-    root.geometry('+{x}+{y}'.format(x=offx,y=offy))
+    x = mainframe.winfo_pointerx() - offsetx
+    y = mainframe.winfo_pointery() - offsety
+    root.geometry('+{x}+{y}'.format(x=x,y=y))
 
 def clickwin(event):
+    global offsetx
+    global offsety
     offsetx = event.x
     offsety = event.y
 
-offx = 0
-offy = 0
 offsetx = 0
 offsety = 0
 mainframe.bind('<ButtonPress-1>',clickwin)
