@@ -1,6 +1,7 @@
 import json, math, winreg
 from tkinter import *
 from tkinter import ttk
+import tkinter as tk
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -10,6 +11,16 @@ def callback():
     observer.join()
     root.destroy()
     exit()
+
+def dragwin(event):
+    x = mainframe.winfo_pointerx() - offsetx
+    y = mainframe.winfo_pointery() - offsety
+    root.geometry('+{x}+{y}'.format(x=x,y=y))
+def clickwin(event):
+    global offsetx
+    global offsety
+    offsetx = event.x
+    offsety = event.y
 
 def resize(root, h, StartingUp=False):
     #Creating window parameters
@@ -35,12 +46,64 @@ def resize(root, h, StartingUp=False):
         print("E05: " + str(e))
         print("Error on resizing")
 
+class CreateToolTip(object):
+    """
+    create a tooltip for a given widget
+    """
+    def __init__(self, widget, text='widget info'):
+        self.waittime = 500     #miliseconds
+        self.wraplength = 180   #pixels
+        self.widget = widget
+        self.text = text
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.widget.bind("<ButtonPress>", self.leave)
+        self.id = None
+        self.tw = None
+
+    def enter(self, event=None):
+        self.schedule()
+
+    def leave(self, event=None):
+        self.unschedule()
+        self.hidetip()
+
+    def schedule(self):
+        self.unschedule()
+        self.id = self.widget.after(self.waittime, self.showtip)
+
+    def unschedule(self):
+        id = self.id
+        self.id = None
+        if id:
+            self.widget.after_cancel(id)
+
+    def showtip(self, event=None):
+        x = y = 0
+        x, y, cx, cy = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+        # creates a toplevel window
+        self.tw = tk.Toplevel(self.widget)
+        # Leaves only the label and removes the app window
+        self.tw.wm_overrideredirect(True)
+        self.tw.wm_geometry("+%d+%d" % (x, y))
+        label = tk.Label(self.tw, text=self.text, justify='left',
+                       background="#ffffff", relief='solid', borderwidth=1,
+                       wraplength = self.wraplength)
+        label.pack(ipadx=1)
+        self.tw.attributes("-topmost", True)
+
+    def hidetip(self):
+        tw = self.tw
+        self.tw= None
+        if tw:
+            tw.destroy()
 
 class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
         if "Status.json" in event.src_path:
             calculate()
-
 
 def calculate(event="None"):
     #
@@ -188,6 +251,13 @@ def calculate(event="None"):
     except Exception as e:
         print("E04: " + str(e))
 
+#Declaring variables
+CurrentLat = 0.0
+CurrentLong = 0.0
+CurrentHead = 0
+CurrentAlt = 0
+offsetx = 0
+offsety = 0
 
 #Asking Windows Registry for the Saved Folders path.
 key = winreg.OpenKey(
@@ -204,13 +274,6 @@ event_handler = JournalUpdate()
 observer = Observer()
 observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
 observer.start()
-
-#
-CurrentLat = 0.0
-CurrentLong = 0.0
-CurrentHead = 0
-CurrentAlt = 0
-
 
 #Creates the app window
 root = Tk()
@@ -269,20 +332,6 @@ mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 mainframe.columnconfigure(0, weight=1)
 mainframe.rowconfigure(0, weight=1)
 
-#Testing Window movement
-def dragwin(event):
-    x = mainframe.winfo_pointerx() - offsetx
-    y = mainframe.winfo_pointery() - offsety
-    root.geometry('+{x}+{y}'.format(x=x,y=y))
-
-def clickwin(event):
-    global offsetx
-    global offsety
-    offsetx = event.x
-    offsety = event.y
-
-offsetx = 0
-offsety = 0
 mainframe.bind('<ButtonPress-1>',clickwin)
 mainframe.bind('<B1-Motion>',dragwin)
 
@@ -301,6 +350,11 @@ CloseB.grid(column=9, row=1, sticky=(E))
 resize(root, 37, True)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+#Add Tooltips
+CloseB_ttp = CreateToolTip(CloseB, 'Close')
+coords_entry_ttp = CreateToolTip(coords_entry, 'Type destination coordinates')
+
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
 root.overrideredirect(True)
