@@ -1,9 +1,10 @@
-import json, math, winreg
+import json, math, winreg, gpxpy.geo
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from urllib.request import urlopen
 
 #Definitions
 def callback():
@@ -22,13 +23,19 @@ def clickwin(event):
     offsetx = event.x
     offsety = event.y
 
-def resize(root, h, StartingUp=False):
+def resize(root, InfoHudLevel, StartingUp=False):
     #Creating window parameters
     w = 159 # width for the Tk root
     #h = 40 # height for the Tk root
     # get screen width and height
     ws = root.winfo_screenwidth() # width of the screen
     hs = root.winfo_screenheight() # height of the screen
+    if InfoHudLevel == 2:
+        h = 100
+    elif InfoHudLevel == 1:
+        h = 80
+    else:
+        h = 37
 
     try:
         if StartingUp:
@@ -104,11 +111,41 @@ class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
         if "Status.json" in event.src_path:
             calculate()
+        if "Journal." in event.src_path:
+            global Body
+            global StarSystem
+            global BodyRadius
+            try:
+                with open(event.src_path) as f:
+                    JContent = reversed(f.readlines())
+                for JEntry in JContent:
+                    JEvent = json.loads(JEntry)
+                    if "ApproachBody" == JEvent['event'] or "Location" == JEvent['event']:
+                        StarSystem = JEvent['StarSystem']
+                        if Body == JEvent['Body']:
+                            raise Exception("Same body, preventing extra polls to EDSM")
+                            break
+                        Body = JEvent['Body']
+                        break
+                try:
+                    EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                    EDSMSystem = json.loads(EDSMraw)
+                    EDSMBodies = EDSMSystem['bodies']
+                    for BodyNameRaw in EDSMBodies:
+                        if BodyNameRaw['name'] == Body:
+                            BodyRadius = BodyNameRaw['radius'] * 1000
+                            print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+
+                except Exception as e:
+                    print("E.EDSM: "+str(e))
+            except Exception as e:
+                print("E.Journal read and parse: "+str(e))
 
 def calculate(event="None"):
     #
     LeftArrow = ""
     RightArrow = ""
+    global InfoHudLevel
 
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
@@ -134,11 +171,11 @@ def calculate(event="None"):
 
     #Read and store the journal file
     with open(JournalFile, "rt") as in_file:
-        JournalContent = in_file.read()
+        JStatusContent = in_file.read()
 
     #Extracting the data from the journal and doing its magic.
     try:
-        Status = json.loads(JournalContent)
+        Status = json.loads(JStatusContent)
 
         StatusFlags = Status['Flags']
 
@@ -160,9 +197,8 @@ def calculate(event="None"):
             try:
                 if NoRun != 0 :
                     print("Coords irrelevant")
-                    resize(root, 40)
+                    resize(root, 0)
                 else:
-                    resize(root, 80)
                     try:
 
                         CurrentLat = round(Status['Latitude'],4)
@@ -178,8 +214,11 @@ def calculate(event="None"):
                         print("Destination Lat: " + str(DstLat))
                         print("Destination Long: " + str(DstLong))
 
-                        CurrentLatRad = math.radians(Status['Latitude'])
-                        CurrentLongRad = math.radians(Status['Longitude'])
+                        CurrentLatDeg = Status['Latitude']
+                        CurrentLongDeg = Status['Longitude']
+
+                        CurrentLatRad = math.radians(CurrentLatDeg)
+                        CurrentLongRad = math.radians(CurrentLongDeg)
                         DstLatRad = math.radians(float(DstLat))
                         DstLongRad = math.radians(float(DstLong))
 
@@ -230,14 +269,34 @@ def calculate(event="None"):
                         print("DirectionA: " + str(Direction) + "°")
                         print("Bearing: " + str(Bearing) + "°")
                         print(LeftArrow + RightArrow)
+                        InfoHudLevel = 1
 
+                        #Calculate distance
+                        if BodyRadius > 0:
+                            DifLat = math.radians(DstLat - CurrentLatDeg)
+                            DifLong = math.radians(DstLong - CurrentLongDeg)
+
+                            Dis1 = math.sin(DifLat / 2)**2 + math.cos(CurrentLatRad) * math.cos(DstLatRad) * math.sin(DifLong / 2)**2
+                            Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
+                            Distance = int(BodyRadius * Dis2)
+
+                            InfoHudLevel = 2
+                            if Distance >= 100000:
+                                Distance = int(Distance / 1000)
+                                DisScale = "km"
+                            else:
+                                DisScale = "m"
+                            Distance = format(Distance, ',d')
+                            DestDistance.set(str(Distance)+" "+DisScale)
+
+                        #Updating indicators
                         DestHeading.set(str(Bearing) + "°")
                         DestHeadingL.set(LeftArrow)
                         DestHeadingR.set(RightArrow)
+                        resize(root, InfoHudLevel)
                     except Exception as e:
                         print("E02: " + str(e))
                     print("_" * 20)
-
             except Exception as e:
                 print("E03: " + str(e))
                 print("Error on calculation")
@@ -247,7 +306,7 @@ def calculate(event="None"):
             DestHeading.set("")
             DestHeadingL.set("")
             DestHeadingR.set("")
-            resize(root, 40)
+            resize(root, 0)
     except Exception as e:
         print("E04: " + str(e))
 
@@ -258,6 +317,10 @@ CurrentHead = 0
 CurrentAlt = 0
 offsetx = 0
 offsety = 0
+StarSystem = ""
+Body = ""
+BodyRadius = 0
+InfoHudLevel = 0
 
 #Asking Windows Registry for the Saved Folders path.
 key = winreg.OpenKey(
@@ -323,6 +386,7 @@ DestinationCoords = StringVar()
 DestHeading = StringVar()
 DestHeadingR = StringVar()
 DestHeadingL = StringVar()
+DestDistance = StringVar()
 
 style.theme_use("EDBearing")
 root.title("EDPlanetBearing")
@@ -344,10 +408,12 @@ ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica"
 ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=1, columnspan=3, row=2, sticky=(E))
 ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=8, columnspan=2, row=2, sticky=(W))
 
+ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 8)).grid(column=4, columnspan=7, row=3, sticky=(N, W, E))
+
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=9, row=1, sticky=(E))
 
-resize(root, 37, True)
+resize(root, 0, True)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
