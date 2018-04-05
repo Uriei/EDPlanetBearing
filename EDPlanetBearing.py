@@ -134,6 +134,7 @@ class JournalUpdate(FileSystemEventHandler):
                         EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
                         EDSMSystem = json.loads(EDSMraw)
                         EDSMBodies = EDSMSystem['bodies']
+                        BodyRadius = 0
                         for BodyNameRaw in EDSMBodies:
                             if BodyNameRaw['name'] == Body:
                                 BodyRadius = BodyNameRaw['radius'] * 1000
