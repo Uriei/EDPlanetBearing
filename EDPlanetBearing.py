@@ -1,4 +1,4 @@
-import json, math, winreg, gpxpy.geo
+import json, math, winreg, os
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
@@ -109,37 +109,41 @@ class CreateToolTip(object):
 
 class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
-        if "Status.json" in event.src_path:
-            calculate()
-        if "Journal." in event.src_path:
-            global Body
-            global StarSystem
-            global BodyRadius
-            try:
-                with open(event.src_path) as f:
-                    JContent = reversed(f.readlines())
-                for JEntry in JContent:
-                    JEvent = json.loads(JEntry)
-                    if "ApproachBody" == JEvent['event'] or "Location" == JEvent['event']:
-                        StarSystem = JEvent['StarSystem']
-                        if Body == JEvent['Body']:
-                            raise Exception("Same body, preventing extra polls to EDSM")
+        print("Detected change in: " + event.src_path)
+        global Body
+        global StarSystem
+        global BodyRadius
+        try:
+            JournalList = reversed(os.listdir(eliteJournalPath))
+            for JournalItemFolder in JournalList:
+                if "Journal." in JournalItemFolder:
+                    print(JournalItemFolder)
+                    JournalItemFile = eliteJournalPath + JournalItemFolder
+                    with open(JournalItemFile) as f:
+                        JContent = reversed(f.readlines())
+                    for JEntry in JContent:
+                        JEvent = json.loads(JEntry)
+                        if "ApproachBody" == JEvent['event'] or "Location" == JEvent['event']:
+                            StarSystem = JEvent['StarSystem']
+                            if Body == JEvent['Body']:
+                                raise Exception("Same body, preventing extra polls to EDSM")
+                                break
+                            Body = JEvent['Body']
                             break
-                        Body = JEvent['Body']
-                        break
-                try:
-                    EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
-                    EDSMSystem = json.loads(EDSMraw)
-                    EDSMBodies = EDSMSystem['bodies']
-                    for BodyNameRaw in EDSMBodies:
-                        if BodyNameRaw['name'] == Body:
-                            BodyRadius = BodyNameRaw['radius'] * 1000
-                            print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
-
-                except Exception as e:
-                    print("E.EDSM: "+str(e))
-            except Exception as e:
-                print("E.Journal read and parse: "+str(e))
+                    try:
+                        EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                        EDSMSystem = json.loads(EDSMraw)
+                        EDSMBodies = EDSMSystem['bodies']
+                        for BodyNameRaw in EDSMBodies:
+                            if BodyNameRaw['name'] == Body:
+                                BodyRadius = BodyNameRaw['radius'] * 1000
+                                print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                    except Exception as e:
+                        print("E.EDSM: "+str(e))
+                    break
+        except Exception as e:
+            print("E.Journal read and parse: "+str(e))
+        calculate()
 
 def calculate(event="None"):
     #
@@ -323,20 +327,23 @@ BodyRadius = 0
 InfoHudLevel = 0
 
 #Asking Windows Registry for the Saved Folders path.
-key = winreg.OpenKey(
-    winreg.HKEY_CURRENT_USER,
-    r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
-)
-dir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
+try:
+    key = winreg.OpenKey(
+        winreg.HKEY_CURRENT_USER,
+        r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+    )
+    dir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
 
-eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
-JournalFile = eliteJournalPath + "Status.json"
+    eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
+    JournalFile = eliteJournalPath + "Status.json"
 
-#watchdog
-event_handler = JournalUpdate()
-observer = Observer()
-observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
-observer.start()
+    #watchdog
+    event_handler = JournalUpdate()
+    observer = Observer()
+    observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
+    observer.start()
+except:
+    pass
 
 #Creates the app window
 root = Tk()
