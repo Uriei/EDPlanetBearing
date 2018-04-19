@@ -1,10 +1,11 @@
-import json, math, winreg, os
+import json, math, winreg, os, win32gui, re
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import urlopen
+from sys import argv
 
 #Definitions
 def callback():
@@ -16,7 +17,7 @@ def callback():
 def dragwin(event):
     x = mainframe.winfo_pointerx() - offsetx
     y = mainframe.winfo_pointery() - offsety
-    root.geometry('+{x}+{y}'.format(x=x,y=y))
+    root.geometry("+{x}+{y}".format(x=x,y=y))
 def clickwin(event):
     global offsetx
     global offsety
@@ -48,7 +49,7 @@ def resize(root, InfoHudLevel, StartingUp=False):
 
         # set the dimensions of the screen
         # and where it is placed
-        root.geometry('%dx%d+%d+%d' % (w, h, x, y))
+        root.geometry("%dx%d+%d+%d" % (w, h, x, y))
     except Exception as e:
         print("E05: " + str(e))
         print("Error on resizing")
@@ -57,7 +58,7 @@ class CreateToolTip(object):
     """
     create a tooltip for a given widget
     """
-    def __init__(self, widget, text='widget info'):
+    def __init__(self, widget, text="widget info"):
         self.waittime = 500     #miliseconds
         self.wraplength = 180   #pixels
         self.widget = widget
@@ -95,8 +96,8 @@ class CreateToolTip(object):
         # Leaves only the label and removes the app window
         self.tw.wm_overrideredirect(True)
         self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = tk.Label(self.tw, text=self.text, justify='left',
-                       background="#ffffff", relief='solid', borderwidth=1,
+        label = tk.Label(self.tw, text=self.text, justify="left",
+                       background="#ffffff", relief="solid", borderwidth=1,
                        wraplength = self.wraplength)
         label.pack(ipadx=1)
         self.tw.attributes("-topmost", True)
@@ -117,34 +118,65 @@ class JournalUpdate(FileSystemEventHandler):
             JournalList = reversed(os.listdir(eliteJournalPath))
             for JournalItemFolder in JournalList:
                 if "Journal." in JournalItemFolder:
-                    print(JournalItemFolder)
+                    print("Reading Journal: "+JournalItemFolder)
                     JournalItemFile = eliteJournalPath + JournalItemFolder
                     with open(JournalItemFile) as f:
                         JContent = reversed(f.readlines())
                     for JEntry in JContent:
                         JEvent = json.loads(JEntry)
-                        if "ApproachBody" == JEvent['event'] or "Location" == JEvent['event']:
-                            StarSystem = JEvent['StarSystem']
-                            if Body == JEvent['Body']:
+                        if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
+                            if Body == JEvent["Body"]:
                                 raise Exception("Same body, preventing extra polls to EDSM")
                                 break
-                            Body = JEvent['Body']
+                            StarSystem = JEvent["StarSystem"]
+                            Body = JEvent["Body"]
                             break
                     try:
-                        BodyRadius = 0
-                        EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
-                        EDSMSystem = json.loads(EDSMraw)
-                        EDSMBodies = EDSMSystem['bodies']
-                        for BodyNameRaw in EDSMBodies:
-                            if BodyNameRaw['name'] == Body:
-                                BodyRadius = BodyNameRaw['radius'] * 1000
-                                print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                        if StarSystem != "" and Body != "":
+                            BodyRadius = 0
+                            EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                            EDSMSystem = json.loads(EDSMraw)
+                            EDSMBodies = EDSMSystem["bodies"]
+                            for BodyNameRaw in EDSMBodies:
+                                if BodyNameRaw["name"] == Body:
+                                    BodyRadius = BodyNameRaw["radius"] * 1000
+                                    print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
                     except Exception as e:
                         print("E.EDSM: "+str(e))
                     break
         except Exception as e:
             print("E.Journal read and parse: "+str(e))
         calculate()
+
+class WindowMgr:
+    """Encapsulates some calls to the winapi for window management"""
+
+    def __init__ (self):
+        """Constructor"""
+        self._handle = None
+
+    def find_window(self, class_name, window_name=None):
+        """find a window by its class_name"""
+        self._handle = win32gui.FindWindow(class_name, window_name)
+
+    def _window_enum_callback(self, hwnd, wildcard):
+        """Pass to win32gui.EnumWindows() to check all the opened windows"""
+        if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
+            self._handle = hwnd
+
+    def find_window_wildcard(self, wildcard):
+        """find a window whose title matches the wildcard regex"""
+        self._handle = None
+        win32gui.EnumWindows(self._window_enum_callback, wildcard)
+
+    def set_foreground(self):
+        """put the window in the foreground"""
+        win32gui.SetForegroundWindow(self._handle)
+
+def FocusElite():
+    w = WindowMgr()
+    w.find_window("FrontierDevelopmentsAppWinClass")
+    w.set_foreground()
 
 def calculate(event="None"):
     #
@@ -171,6 +203,7 @@ def calculate(event="None"):
     try:
         if "Return" in event.keysym:
             DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+            FocusElite()
     except:
         pass
 
@@ -182,7 +215,7 @@ def calculate(event="None"):
     try:
         Status = json.loads(JStatusContent)
 
-        StatusFlags = Status['Flags']
+        StatusFlags = Status["Flags"]
 
         #Checking if coordinates are relevant or not
         FlagDocked = StatusFlags & 1<<0
@@ -206,10 +239,10 @@ def calculate(event="None"):
                 else:
                     try:
 
-                        CurrentLat = round(Status['Latitude'],4)
-                        CurrentLong = round(Status['Longitude'],4)
-                        CurrentHead = round(Status['Heading'],0)
-                        CurrentAlt = round(Status['Altitude'],0)
+                        CurrentLat = round(Status["Latitude"],4)
+                        CurrentLong = round(Status["Longitude"],4)
+                        CurrentHead = round(Status["Heading"],0)
+                        CurrentAlt = round(Status["Altitude"],0)
 
                         print("Coords relevant")
                         print("Current Lat: " + str(CurrentLat))
@@ -219,8 +252,8 @@ def calculate(event="None"):
                         print("Destination Lat: " + str(DstLat))
                         print("Destination Long: " + str(DstLong))
 
-                        CurrentLatDeg = Status['Latitude']
-                        CurrentLongDeg = Status['Longitude']
+                        CurrentLatDeg = Status["Latitude"]
+                        CurrentLongDeg = Status["Longitude"]
 
                         CurrentLatRad = math.radians(CurrentLatDeg)
                         CurrentLongRad = math.radians(CurrentLongDeg)
@@ -291,7 +324,7 @@ def calculate(event="None"):
                                 DisScale = "km"
                             else:
                                 DisScale = "m"
-                            Distance = format(Distance, ',d')
+                            Distance = format(Distance, ",d")
                             DestDistance.set(str(Distance)+" "+DisScale)
 
                         #Updating indicators
@@ -404,8 +437,8 @@ mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 mainframe.columnconfigure(0, weight=1)
 mainframe.rowconfigure(0, weight=1)
 
-mainframe.bind('<ButtonPress-1>',clickwin)
-mainframe.bind('<B1-Motion>',dragwin)
+mainframe.bind("<ButtonPress-1>",clickwin)
+mainframe.bind("<B1-Motion>",dragwin)
 
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
 coords_entry.grid(column=1, columnspan=8, row=1, sticky=(W, E))
@@ -425,9 +458,27 @@ resize(root, 0, True)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
+#Get Arguments and automatically set destination
+def getopts(argv):
+    opts = {}  # Empty dictionary to store key-value pairs.
+    while argv:  # While there are arguments left to parse...
+        if argv[0][0] == "+":  # Found a "-name value" pair.
+            opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
+        argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
+    return opts
+try:
+    myargs = getopts(argv)
+    if "+lat" in myargs and "+long" in myargs:
+        ArgLat = myargs["+lat"]
+        ArgLong = myargs["+long"]
+        DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
+        root.after(100,FocusElite)
+except:
+    pass
+
 #Add Tooltips
-CloseB_ttp = CreateToolTip(CloseB, 'Close')
-coords_entry_ttp = CreateToolTip(coords_entry, 'Type destination coordinates')
+CloseB_ttp = CreateToolTip(CloseB, "Close")
+coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
