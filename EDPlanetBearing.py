@@ -537,6 +537,8 @@ try:
         ArgLong = myargs["+long"]
         DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
         root.after(100,FocusElite)
+    if "-Audio" in argv:
+        PingActive.set(1)
 except:
     pass
 
