@@ -2,10 +2,12 @@ import json, math, winreg, os, win32gui, re
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
+from sys import argv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import urlopen
-from sys import argv
+from openal.audio import SoundSink, SoundSource
+from openal.loaders import load_wav_file
 
 #Definitions
 def callback():
@@ -26,7 +28,7 @@ def clickwin(event):
 
 def resize(root, InfoHudLevel, StartingUp=False):
     #Creating window parameters
-    w = 159 # width for the Tk root
+    w = 180 # width for the Tk root
     #h = 40 # height for the Tk root
     # get screen width and height
     ws = root.winfo_screenwidth() # width of the screen
@@ -178,11 +180,51 @@ def FocusElite():
     w.find_window("FrontierDevelopmentsAppWinClass")
     w.set_foreground()
 
+class AudioFeedBack:
+    def Start():
+        #Prepare audio feedback
+        try:
+            global sink
+            global source
+            global data
+            sink = SoundSink()
+            sink.activate()
+            source = SoundSource(position=[0, 0, 180])
+            source.looping = False
+            source.gain = 100.0
+            data = load_wav_file(sound_beep)
+            source.queue(data)
+            sink.play(source)
+            print("Audio system started")
+        except Exception as e:
+            print("E.Starting Audio:" + str(e))
+    def Ping():
+        try:
+            global PingDelay
+            global PingPos
+            global InfoHudLevel
+            global sink
+            global source
+            global data
+            global PingActive
+            if InfoHudLevel != 0 and PingActive.get() == 1:
+                source.position = [PingPos, source.position[1], source.position[2]]
+                sink.update()
+                source.queue(data)
+        except Exception as e:
+            print("E.Playing Audio:" + str(e))
+        finally:
+            root.after(PingDelay,AudioFeedBack.Ping)
+
+    def Stop():
+        pass
+
 def calculate(event="None"):
     #
     LeftArrow = ""
     RightArrow = ""
     global InfoHudLevel
+    global PingPos
 
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
@@ -290,6 +332,7 @@ def calculate(event="None"):
                                 LeftArrow = "<<"
                             if Direction >= 90:
                                 LeftArrow = "<<<"
+                            PingPos = 0 - Direction
                         elif Direction > 180:
                             # Turn right : 360-Direction degrees
                             print("Going Right")
@@ -299,10 +342,13 @@ def calculate(event="None"):
                                 RightArrow = ">>"
                             if Direction >= 90:
                                 RightArrow = ">>>"
+                            PingPos = Direction
                         else:
                             print("Going Backwards")
                             LeftArrow = "<<<"
                             RightArrow = ">>>"
+
+
 
                         print("DirectionA: " + str(Direction) + "°")
                         print("Bearing: " + str(Bearing) + "°")
@@ -348,6 +394,7 @@ def calculate(event="None"):
     except Exception as e:
         print("E04: " + str(e))
 
+
 #Declaring variables
 CurrentLat = 0.0
 CurrentLong = 0.0
@@ -359,6 +406,11 @@ StarSystem = ""
 Body = ""
 BodyRadius = 0
 InfoHudLevel = 0
+PingPos = 0
+sound_beep = "Beep.wav" #Default sound file
+PingDelay = 1000 #Default Ping delay
+
+AudioFeedBack.Start()
 
 #Asking Windows Registry for the Saved Folders path.
 try:
@@ -420,6 +472,14 @@ style.theme_settings("EDBearing", {
             "foreground":       [("focus", "orange"),
                                 ("!disabled", "orange")]
         }
+    },
+    "TCheckbutton": {
+        "map": {
+            "background":       [("active", "black"),
+                                ("!disabled", "black")],
+            "foreground":       [("focus", "orange"),
+                                ("!disabled", "orange")]
+        }
     }
 })
 
@@ -428,6 +488,7 @@ DestHeading = StringVar()
 DestHeadingR = StringVar()
 DestHeadingL = StringVar()
 DestDistance = StringVar()
+PingActive = IntVar()
 
 style.theme_use("EDBearing")
 root.title("EDPlanetBearing")
@@ -441,18 +502,21 @@ mainframe.bind("<ButtonPress-1>",clickwin)
 mainframe.bind("<B1-Motion>",dragwin)
 
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
-coords_entry.grid(column=1, columnspan=8, row=1, sticky=(W, E))
+coords_entry.grid(column=2, columnspan=8, row=1, sticky=(W, E))
 coords_entry.focus()
 coords_entry.bind("<Return>", calculate)
 
-ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=4, columnspan=6, row=2, sticky=(W, E))
-ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=1, columnspan=3, row=2, sticky=(E))
-ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=8, columnspan=2, row=2, sticky=(W))
+ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=5, columnspan=6, row=2, sticky=(W, E))
+ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
+ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=9, columnspan=2, row=2, sticky=(W))
 
-ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 8)).grid(column=4, columnspan=7, row=3, sticky=(N, W, E))
+ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 8)).grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
 
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
-CloseB.grid(column=9, row=1, sticky=(E))
+CloseB.grid(column=10, row=1, sticky=(E))
+
+PingCB = ttk.Checkbutton(mainframe, variable=PingActive)
+PingCB.grid(column=1, row=1, sticky=(E))
 
 resize(root, 0, True)
 
@@ -479,6 +543,9 @@ except:
 #Add Tooltips
 CloseB_ttp = CreateToolTip(CloseB, "Close")
 coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
+PingCB_ttp = CreateToolTip(PingCB, "Audio Feedback")
+
+root.after(PingDelay,AudioFeedBack.Ping)
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
