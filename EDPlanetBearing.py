@@ -189,32 +189,57 @@ class AudioFeedBack:
             global data
             sink = SoundSink()
             sink.activate()
-            source = SoundSource(position=[0, 0, 180])
+            source = SoundSource(position=[0, 0, 50])
             source.looping = False
-            source.gain = 100.0
+            source.gain = 50.0
             data = load_wav_file(sound_beep)
-            source.queue(data)
+            #source.queue(data)
             sink.play(source)
             print("Audio system started")
         except Exception as e:
             print("E.Starting Audio:" + str(e))
-    def Ping():
+    def PingLoop():
         try:
             global PingDelay
-            global PingPos
+            global PingPosX
+            global PingPosZ
+            global PingPitch
             global InfoHudLevel
             global sink
             global source
             global data
             global PingActive
             if InfoHudLevel != 0 and PingActive.get() == 1:
-                source.position = [PingPos, source.position[1], source.position[2]]
-                sink.update()
+                source.position = [PingPosX, source.position[1], PingPosZ]
+                source.pitch = PingPitch
                 source.queue(data)
+                print("Ping at: " + str(source.position))
+                sink.update()
+        except Exception as e:
+            print("E.Playing Audio(Loop):" + str(e))
+        finally:
+            root.after(PingDelay,AudioFeedBack.PingLoop)
+
+    def PingAlert(PingAmount=3):
+        try:
+            global PingDelay
+            global PingPosX
+            global PingPosZ
+            global PingPitch
+            global InfoHudLevel
+            global sink
+            global source
+            global data
+            global PingActive
+            if InfoHudLevel != 0 and PingActive.get() == 1:
+                source.position = [PingPosX, source.position[1], source.position[2]]
+                source.pitch = 1.0
+                for i in range(0,PingAmount):
+                    source.queue(data)
+                print("Ping at: " + str(source.position))
+                sink.update()
         except Exception as e:
             print("E.Playing Audio:" + str(e))
-        finally:
-            root.after(PingDelay,AudioFeedBack.Ping)
 
     def Stop():
         pass
@@ -224,7 +249,10 @@ def calculate(event="None"):
     LeftArrow = ""
     RightArrow = ""
     global InfoHudLevel
-    global PingPos
+    global PingPosX
+    global PingPosZ
+    global PingPitch
+    global PreviousBearing
 
     #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
@@ -318,37 +346,58 @@ def calculate(event="None"):
 
                         Direction = CurrentHead - Bearing   # calculate left turn, will allways be 0..359
                         print("DirectionB: " + str(Direction) + "°")
-
+                        PingPosX = 0.0
                         # take the smallest turn
                         if Direction <= 1 or Direction >= 359:
                             print("Going Forward")
                             LeftArrow = ""
                             RightArrow = ""
+                            if Direction > 180:
+                                Direction = 360 - Direction
                         elif Direction < 180:
                             # Turn left : Direction degrees
                             print("Going Left")
                             LeftArrow = "<"
+                            PingPosX = -50.0
                             if Direction >= 30:
                                 LeftArrow = "<<"
                             if Direction >= 90:
                                 LeftArrow = "<<<"
-                            PingPos = 0 - Direction
                         elif Direction > 180:
                             # Turn right : 360-Direction degrees
                             print("Going Right")
                             Direction = 360 - Direction
                             RightArrow = ">"
+                            PingPosX = 50.0
                             if Direction >= 30:
                                 RightArrow = ">>"
                             if Direction >= 90:
                                 RightArrow = ">>>"
-                            PingPos = Direction
                         else:
                             print("Going Backwards")
                             LeftArrow = "<<<"
                             RightArrow = ">>>"
 
+                        #I need to think on this part
+                        #RawLeftDirection = CurrentHead - Bearing
+                        #if RawLeftDirection >= 180:
+                        #    PingPosX = RawLeftDirection - 180
+                        #else:
+                        #    PingPosX = -180 + RawLeftDirection
 
+                        #PingPosZ = math.cos(math.radians(PingPosX))*90
+                        #PingPitch = float(1 - int((PingPosZ + 64) % 64) )
+
+                        print("PingPosX:" + str(PingPosX))
+                        #print("PingPosZ:" + str(PingPosZ))
+                        #print("PingPitch:" + str(PingPitch))
+
+                        AlertMargin = 60
+                        print("PreviousBearing: " + str(PreviousBearing) + "°")
+                        if PreviousBearing + AlertMargin < Direction or Direction + AlertMargin < PreviousBearing:
+                            if not Direction <= 5:
+                                AudioFeedBack.PingAlert(3)
+                        PreviousBearing = Direction
 
                         print("DirectionA: " + str(Direction) + "°")
                         print("Bearing: " + str(Bearing) + "°")
@@ -400,13 +449,14 @@ CurrentLat = 0.0
 CurrentLong = 0.0
 CurrentHead = 0
 CurrentAlt = 0
+PreviousBearing = 0
 offsetx = 0
 offsety = 0
 StarSystem = ""
 Body = ""
 BodyRadius = 0
 InfoHudLevel = 0
-PingPos = 0
+PingPosX = 0
 sound_beep = "Beep.wav" #Default sound file
 PingDelay = 1000 #Default Ping delay
 
@@ -537,7 +587,7 @@ try:
         ArgLong = myargs["+long"]
         DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
         root.after(100,FocusElite)
-    if "-Audio" in argv:
+    if "-Audio" in argv or "-audio" in argv:
         PingActive.set(1)
 except:
     pass
@@ -547,7 +597,7 @@ CloseB_ttp = CreateToolTip(CloseB, "Close")
 coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
 PingCB_ttp = CreateToolTip(PingCB, "Audio Feedback")
 
-root.after(PingDelay,AudioFeedBack.Ping)
+#root.after(PingDelay,AudioFeedBack.PingLoop)
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
