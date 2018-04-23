@@ -11,6 +11,11 @@ from openal.loaders import load_wav_file
 
 #Definitions
 def callback():
+    global EDPBConfigFile
+    try:
+        os.remove(EDPBConfigFile)
+    except Exception as e:
+        print("E.Deleting config file: " + str(e))
     observer.stop()
     observer.join()
     root.destroy()
@@ -187,6 +192,7 @@ class AudioFeedBack:
             global sink
             global source
             global data
+
             sink = SoundSink()
             sink.activate()
             source = SoundSource(position=[0, 0, 50])
@@ -208,41 +214,60 @@ class AudioFeedBack:
             global sink
             global source
             global data
-            global PingActive
-            if InfoHudLevel != 0 and PingActive.get() == 1:
-                source.position = [PingPosX, source.position[1], PingPosZ]
-                source.pitch = PingPitch
-                source.queue(data)
-                print("Ping at: " + str(source.position))
-                sink.update()
+            global AudioMode
+            global DirectionOverMargin
+
+            if InfoHudLevel != 0:
+                if AudioMode.get() == 1 and DirectionOverMargin:
+                    source.position = [PingPosX, source.position[1], PingPosZ]
+                    source.pitch = PingPitch
+                    source.queue(data)
+                    #print("Ping at: " + str(source.position))
+                    sink.update()
         except Exception as e:
             print("E.Playing Audio(Loop):" + str(e))
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
 
-    def PingAlert(PingAmount=3):
-        try:
-            global PingDelay
-            global PingPosX
-            global PingPosZ
-            global PingPitch
-            global InfoHudLevel
-            global sink
-            global source
-            global data
-            global PingActive
-            if InfoHudLevel != 0 and PingActive.get() == 1:
-                source.position = [PingPosX, source.position[1], source.position[2]]
-                source.pitch = 1.0
-                for i in range(0,PingAmount):
-                    source.queue(data)
-                print("Ping at: " + str(source.position))
-                sink.update()
-        except Exception as e:
-            print("E.Playing Audio:" + str(e))
-
     def Stop():
         pass
+
+def GetConfigFromFile(): #Gets config from config file if exists and applies it
+    global EDPBConfigFile
+    global AudioMode
+    if os.path.exists(EDPBConfigFile):
+        try:
+            with open(EDPBConfigFile, "rt") as in_file:
+                EDPBConfigContent = in_file.read()
+            Configs = json.loads(EDPBConfigContent)
+
+            DstLat = float(Configs["Lat"])
+            DstLong = float(Configs["Long"])
+            try:
+                AudioMode.set(int(Configs["Audio"]))
+            except:
+                pass
+            if DstLat == -0:
+                DstLat = 0.0
+
+            DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+
+            #Disable GUI
+            if str(coords_entry["state"]) == "normal":
+                coords_entry["state"] = "disabled"
+                print("GUI Disabled")
+        except Exception as e:
+            print("E.Reading Config file: " + str(e))
+            if str(coords_entry["state"]) != "normal":
+                coords_entry["state"] = "normal"
+                print("GUI Enabled")
+
+    else:
+        if str(PingCB["state"]) != "normal" or str(coords_entry["state"]) != "normal":
+            PingCB["state"] = "normal"
+            coords_entry["state"] = "normal"
+            print("GUI Enabled")
+    root.after(5000, GetConfigFromFile)
 
 def calculate(event="None"):
     #
@@ -252,9 +277,8 @@ def calculate(event="None"):
     global PingPosX
     global PingPosZ
     global PingPitch
-    global PreviousBearing
+    global DirectionOverMargin
 
-    #Getting the testing destination
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
     Destination = str(DestinationRaw).split()
     print("Typed Coords: " + DestinationCoords.get())
@@ -336,17 +360,11 @@ def calculate(event="None"):
                         BearingDeg = math.degrees(BearingRad)
                         Bearing = int((BearingDeg + 360) % 360)
 
-                        #Direction = Bearing - CurrentHead
-
-                        #This part is awful to see but does the job
-                        #This calculates the amount of arrows to add to each side
-
                         if CurrentHead < Bearing:
                             CurrentHead += 360  # denormalize ...
-
-                        Direction = CurrentHead - Bearing   # calculate left turn, will allways be 0..359
-                        print("DirectionB: " + str(Direction) + "°")
-                        PingPosX = 0.0
+                        DirectionRaw = CurrentHead - Bearing   # calculate left turn, will allways be 0..359
+                        Direction = DirectionRaw
+                        print("DirectionRaw: " + str(DirectionRaw) + "°")
                         # take the smallest turn
                         if Direction <= 1 or Direction >= 359:
                             print("Going Forward")
@@ -358,7 +376,6 @@ def calculate(event="None"):
                             # Turn left : Direction degrees
                             print("Going Left")
                             LeftArrow = "<"
-                            PingPosX = -50.0
                             if Direction >= 30:
                                 LeftArrow = "<<"
                             if Direction >= 90:
@@ -368,7 +385,6 @@ def calculate(event="None"):
                             print("Going Right")
                             Direction = 360 - Direction
                             RightArrow = ">"
-                            PingPosX = 50.0
                             if Direction >= 30:
                                 RightArrow = ">>"
                             if Direction >= 90:
@@ -378,26 +394,22 @@ def calculate(event="None"):
                             LeftArrow = "<<<"
                             RightArrow = ">>>"
 
-                        #I need to think on this part
-                        #RawLeftDirection = CurrentHead - Bearing
-                        #if RawLeftDirection >= 180:
-                        #    PingPosX = RawLeftDirection - 180
-                        #else:
-                        #    PingPosX = -180 + RawLeftDirection
-
-                        #PingPosZ = math.cos(math.radians(PingPosX))*90
-                        #PingPitch = float(1 - int((PingPosZ + 64) % 64) )
+                        #Setting 3D position of the beep source
+                        PingPosX = math.sin(math.radians(-DirectionRaw))*50
+                        PingPosZ = math.cos(math.radians(-DirectionRaw))*50
+                        PingPitch = 1.0 - (Direction / 360)
 
                         print("PingPosX:" + str(PingPosX))
-                        #print("PingPosZ:" + str(PingPosZ))
-                        #print("PingPitch:" + str(PingPitch))
+                        print("PingPosZ:" + str(PingPosZ))
+                        print("PingPitch:" + str(PingPitch))
 
-                        AlertMargin = 60
-                        print("PreviousBearing: " + str(PreviousBearing) + "°")
-                        if PreviousBearing + AlertMargin < Direction or Direction + AlertMargin < PreviousBearing:
-                            if not Direction <= 5:
-                                AudioFeedBack.PingAlert(3)
-                        PreviousBearing = Direction
+                        AlertMargin = 45
+                        if AlertMargin < Direction:
+                            DirectionOverMargin = True
+                            print("Over 45º")
+                        else:
+                            DirectionOverMargin = False
+                            print("Not over 45º")
 
                         print("DirectionA: " + str(Direction) + "°")
                         print("Bearing: " + str(Bearing) + "°")
@@ -458,19 +470,19 @@ BodyRadius = 0
 InfoHudLevel = 0
 PingPosX = 0
 sound_beep = "Beep.wav" #Default sound file
-PingDelay = 1000 #Default Ping delay
+PingDelay = 1500 #Default Ping delay
 
 AudioFeedBack.Start()
 
-#Asking Windows Registry for the Saved Folders path.
+#Asking Windows Registry for the Saved Folder and Appdata paths.
 try:
     key = winreg.OpenKey(
         winreg.HKEY_CURRENT_USER,
         r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
     )
-    dir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
+    JournalDir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
 
-    eliteJournalPath = dir + "\\Frontier Developments\\Elite Dangerous\\"
+    eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
     JournalFile = eliteJournalPath + "Status.json"
 
     #watchdog
@@ -479,7 +491,18 @@ try:
     observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
     observer.start()
 except:
-    pass
+    print("E.Getting Journal Path")
+try:
+    LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
+    EDPBConfigFile = LAppdatDdir + "\\EDPlanetBearing\\Config.json"
+    if not os.path.exists(os.path.dirname(EDPBConfigFile)):
+        try:
+            os.makedirs(os.path.dirname(EDPBConfigFile))
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+except:
+    print("E.Getting Appdata Path")
 
 #Creates the app window
 root = Tk()
@@ -510,8 +533,10 @@ style.theme_settings("EDBearing", {
         "configure":            {"insertbackground": "orange"},
         "map": {
             "fieldbackground":  [("focus", "white"),
+                                ("disabled", "black"),
                                 ("!disabled", "black")],
             "foreground":       [("focus", "black"),
+                                ("disabled", "orange"),
                                 ("!disabled", "orange")]
         }
     },
@@ -526,8 +551,10 @@ style.theme_settings("EDBearing", {
     "TCheckbutton": {
         "map": {
             "background":       [("active", "black"),
+                                ("disabled", "black"),
                                 ("!disabled", "black")],
             "foreground":       [("focus", "orange"),
+                                ("disabled", "orange"),
                                 ("!disabled", "orange")]
         }
     }
@@ -538,7 +565,7 @@ DestHeading = StringVar()
 DestHeadingR = StringVar()
 DestHeadingL = StringVar()
 DestDistance = StringVar()
-PingActive = IntVar()
+AudioMode = IntVar()
 
 style.theme_use("EDBearing")
 root.title("EDPlanetBearing")
@@ -565,7 +592,7 @@ ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=10, row=1, sticky=(E))
 
-PingCB = ttk.Checkbutton(mainframe, variable=PingActive)
+PingCB = ttk.Checkbutton(mainframe, variable=AudioMode)
 PingCB.grid(column=1, row=1, sticky=(E))
 
 resize(root, 0, True)
@@ -587,8 +614,12 @@ try:
         ArgLong = myargs["+long"]
         DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
         root.after(100,FocusElite)
+        try:
+            os.remove(EDPBConfigFile)
+        except Exception as e:
+            print("E.Deleting config file: " + str(e))
     if "-Audio" in argv or "-audio" in argv:
-        PingActive.set(1)
+        AudioMode.set(1)
 except:
     pass
 
@@ -597,7 +628,8 @@ CloseB_ttp = CreateToolTip(CloseB, "Close")
 coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
 PingCB_ttp = CreateToolTip(PingCB, "Audio Feedback")
 
-#root.after(PingDelay,AudioFeedBack.PingLoop)
+root.after(PingDelay,AudioFeedBack.PingLoop)
+root.after(100, GetConfigFromFile)
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
