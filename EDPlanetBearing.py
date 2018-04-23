@@ -9,6 +9,10 @@ from urllib.request import urlopen
 from openal.audio import SoundSink, SoundSource
 from openal.loaders import load_wav_file
 
+#Creates the app window
+root = Tk()
+style = ttk.Style()
+
 #Definitions
 def callback(ClearLock=True):
     global EDPBConfigFile
@@ -66,7 +70,7 @@ def clickwin(event):
 
 def resize(root, InfoHudLevel, StartingUp=False):
     #Creating window parameters
-    w = 180 # width for the Tk root
+    w = 185 # width for the Tk root
     #h = 40 # height for the Tk root
     # get screen width and height
     ws = root.winfo_screenwidth() # width of the screen
@@ -251,17 +255,29 @@ class AudioFeedBack:
             global DirectionOverMargin
 
             if InfoHudLevel != 0:
-                if AudioMode.get() == 1 and DirectionOverMargin:
+                if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
                     source.position = [PingPosX, source.position[1], PingPosZ]
                     source.pitch = PingPitch
                     source.queue(data)
-                    #print("Ping at: " + str(source.position))
+                    print("Ping at: " + str(source.position))
                     sink.update()
         except Exception as e:
             print("E.Playing Audio(Loop):" + str(e))
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
 
+    def PingCycleMode():
+        global AudioMode
+        try:
+            if AudioMode == 2:
+                AudioMode = 0
+            else:
+                AudioMode = AudioMode + 1
+            exec('PingCB["image"] = BMPingAudio' + str(AudioMode))
+            coords_entry.focus()
+            print("Audio Mode set to: " + str(AudioMode) + " - " + str(PingCB["image"]))
+        except Exception as e:
+            print("E.Setting Audio Feedback image: " + str(e))
     def Stop():
         pass
 
@@ -277,7 +293,7 @@ def GetConfigFromFile(): #Gets config from config file if exists and applies it
             DstLat = float(Configs["Lat"])
             DstLong = float(Configs["Long"])
             try:
-                AudioMode.set(int(Configs["Audio"]))
+                AudioMode = int(Configs["Audio"])
             except:
                 pass
             if DstLat == -0:
@@ -505,6 +521,10 @@ InfoHudLevel = 0
 PingPosX = 0
 sound_beep = "Beep.wav" #Default sound file
 PingDelay = 1500 #Default Ping delay
+BMPingAudio0 = PhotoImage(file="BMPingAudio0.png")
+BMPingAudio1 = PhotoImage(file="BMPingAudio1.png")
+BMPingAudio2 = PhotoImage(file="BMPingAudio2.png")
+AudioMode = 0
 
 AudioFeedBack.Start()
 
@@ -539,10 +559,6 @@ try:
                 raise
 except:
     print("E.Getting Appdata Path")
-
-#Creates the app window
-root = Tk()
-style = ttk.Style()
 
 style.theme_create("EDBearing", parent="clam", settings=None)
 
@@ -601,7 +617,6 @@ DestHeading = StringVar()
 DestHeadingR = StringVar()
 DestHeadingL = StringVar()
 DestDistance = StringVar()
-AudioMode = IntVar()
 
 style.theme_use("EDBearing")
 root.title("EDPlanetBearing")
@@ -628,7 +643,7 @@ ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=10, row=1, sticky=(E))
 
-PingCB = ttk.Checkbutton(mainframe, variable=AudioMode)
+PingCB = ttk.Button(mainframe, image=BMPingAudio0, command=AudioFeedBack.PingCycleMode)
 PingCB.grid(column=1, row=1, sticky=(E))
 
 resize(root, 0, True)
@@ -655,14 +670,18 @@ try:
         except Exception as e:
             print("E.Deleting config file: " + str(e))
     if "-Audio" in argv or "-audio" in argv:
-        AudioMode.set(1)
+        AudioMode = 1
 except:
     pass
 
 #Add Tooltips
 CloseB_ttp = CreateToolTip(CloseB, "Close")
 coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
-PingCB_ttp = CreateToolTip(PingCB, "Audio Feedback")
+PingCB_ttp = CreateToolTip(PingCB, \
+"Audio Feedback\n"
+"Red = No audio\n"
+"Yellow = Only when deviation greater than 45°\n"
+"Green = All the time")
 
 root.after(PingDelay,AudioFeedBack.PingLoop)
 root.after(100, GetConfigFromFile)
