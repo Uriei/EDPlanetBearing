@@ -28,6 +28,11 @@ def callback(ClearLock=True):
     root.destroy()
     exit()
 
+def resource_path(relative):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.join(relative)
+
 def SingleInstance(FirstRun=False):
     global EDPBLock
     global SessionID
@@ -84,9 +89,10 @@ def resize(root, InfoHudLevel, StartingUp=False):
 
     try:
         if StartingUp:
-            # calculate x and y coordinates for the Tk root window
+            # Calculate x and y coordinates for the Tk root window
             x = (ws/2) - (w/2)
             y = (hs/100)# - (h/2)
+            root.after(100, JournalUpdate.on_modified, JournalUpdate, "Startup")
         else:
             x = root.winfo_rootx()
             y = root.winfo_rooty()
@@ -154,7 +160,6 @@ class CreateToolTip(object):
 
 class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
-        print("Detected change in: " + event.src_path)
         global Body
         global StarSystem
         global BodyRadius
@@ -190,7 +195,7 @@ class JournalUpdate(FileSystemEventHandler):
                     break
         except Exception as e:
             print("E.Journal read and parse: "+str(e))
-        calculate()
+        Calculate()
 
 class WindowMgr:
     """Encapsulates some calls to the winapi for window management"""
@@ -266,10 +271,12 @@ class AudioFeedBack:
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
 
-    def PingCycleMode():
+    def PingCycleMode(AudioModeSet = -1):
         global AudioMode
         try:
-            if AudioMode == 2:
+            if AudioModeSet != -1:
+                AudioMode = AudioModeSet
+            elif AudioMode == 2:
                 AudioMode = 0
             else:
                 AudioMode = AudioMode + 1
@@ -287,19 +294,20 @@ def GetConfigFromFile(): #Gets config from config file if exists and applies it
     if os.path.exists(EDPBConfigFile):
         try:
             with open(EDPBConfigFile) as f:
-                EDPBConfigContent = f.read()
+                EDPBConfigContent = f.read().lower()
             Configs = json.loads(EDPBConfigContent)
 
-            DstLat = float(Configs["Lat"])
-            DstLong = float(Configs["Long"])
+            DstLat = float(Configs["lat"])
+            DstLong = float(Configs["long"])
             try:
-                AudioMode = int(Configs["Audio"])
+                AudioFeedBack.PingCycleMode(int(Configs["audio"]))
             except:
                 pass
             if DstLat == -0:
                 DstLat = 0.0
 
             DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+            root.after(100,FocusElite)
 
             #Disable GUI
             if str(coords_entry["state"]) == "normal":
@@ -318,7 +326,7 @@ def GetConfigFromFile(): #Gets config from config file if exists and applies it
             print("GUI Enabled")
     root.after(5000, GetConfigFromFile)
 
-def calculate(event="None"):
+def Calculate(event="None"):
     #
     LeftArrow = ""
     RightArrow = ""
@@ -411,7 +419,7 @@ def calculate(event="None"):
 
                         if CurrentHead < Bearing:
                             CurrentHead += 360  # denormalize ...
-                        DirectionRaw = CurrentHead - Bearing   # calculate left turn, will allways be 0..359
+                        DirectionRaw = CurrentHead - Bearing   # Calculate left turn, will allways be 0..359
                         Direction = DirectionRaw
                         print("DirectionRaw: " + str(DirectionRaw) + "°")
                         # take the smallest turn
@@ -521,9 +529,10 @@ InfoHudLevel = 0
 PingPosX = 0
 sound_beep = "Beep.wav" #Default sound file
 PingDelay = 1500 #Default Ping delay
-BMPingAudio0 = PhotoImage(file="BMPingAudio0.png")
-BMPingAudio1 = PhotoImage(file="BMPingAudio1.png")
-BMPingAudio2 = PhotoImage(file="BMPingAudio2.png")
+data_dir = "."
+BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio0.png")))
+BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio1.png")))
+BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio2.png")))
 AudioMode = 0
 
 AudioFeedBack.Start()
@@ -632,7 +641,7 @@ mainframe.bind("<B1-Motion>",dragwin)
 coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
 coords_entry.grid(column=2, columnspan=8, row=1, sticky=(W, E))
 coords_entry.focus()
-coords_entry.bind("<Return>", calculate)
+coords_entry.bind("<Return>", Calculate)
 
 ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=5, columnspan=6, row=2, sticky=(W, E))
 ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
@@ -669,10 +678,10 @@ try:
             os.remove(EDPBConfigFile)
         except Exception as e:
             print("E.Deleting config file: " + str(e))
-    if "-Audio" in argv or "-audio" in argv:
-        AudioMode = 1
-except:
-    pass
+    if "+audio" in myargs:
+        AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
+except Exception as e:
+    print (e)
 
 #Add Tooltips
 CloseB_ttp = CreateToolTip(CloseB, "Close")
@@ -685,7 +694,7 @@ PingCB_ttp = CreateToolTip(PingCB, \
 
 root.after(PingDelay,AudioFeedBack.PingLoop)
 root.after(100, GetConfigFromFile)
-root.after(0, SingleInstance,True)
+root.after(100, SingleInstance,True)
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
