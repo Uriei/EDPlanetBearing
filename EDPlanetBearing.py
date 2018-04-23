@@ -1,4 +1,4 @@
-import json, math, winreg, os, win32gui, re
+import json, math, winreg, os, win32gui, re, random
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
@@ -10,16 +10,49 @@ from openal.audio import SoundSink, SoundSource
 from openal.loaders import load_wav_file
 
 #Definitions
-def callback():
+def callback(ClearLock=True):
     global EDPBConfigFile
+    global EDPBLock
     try:
+        if ClearLock:
+            os.remove(EDPBLock)
         os.remove(EDPBConfigFile)
-    except Exception as e:
-        print("E.Deleting config file: " + str(e))
+    except:
+        print("E.Deleting Appdata files")
     observer.stop()
     observer.join()
     root.destroy()
     exit()
+
+def SingleInstance(FirstRun=False):
+    global EDPBLock
+    global SessionID
+    try:
+        if not os.path.exists(EDPBLock) or FirstRun:
+            try:
+                SessionID = str(random.randrange(0, 1000000000))
+                with open(EDPBLock,"w") as f:
+                    f.write(SessionID)
+                print("Session ID: " + SessionID)
+                root.after(1000,SingleInstance)
+            except Exception as e: # Guard against race condition
+                print("E.Creating SessionLock file: " + str(e))
+                callback()
+        else:
+            try:
+                with open(EDPBLock) as f:
+                    EDPBLockID = f.read()
+                if EDPBLockID != SessionID:
+                    print("New session ID detected, closing instance.")
+                    callback(False)
+                else:
+                    root.after(1000,SingleInstance)
+            except Exception as e: # Guard against race condition
+                print("E.Checking Session Lock: " + str(e))
+                callback(False)
+
+    except:
+        print("E.Getting Appdata Path")
 
 def dragwin(event):
     x = mainframe.winfo_pointerx() - offsetx
@@ -237,8 +270,8 @@ def GetConfigFromFile(): #Gets config from config file if exists and applies it
     global AudioMode
     if os.path.exists(EDPBConfigFile):
         try:
-            with open(EDPBConfigFile, "rt") as in_file:
-                EDPBConfigContent = in_file.read()
+            with open(EDPBConfigFile) as f:
+                EDPBConfigContent = f.read()
             Configs = json.loads(EDPBConfigContent)
 
             DstLat = float(Configs["Lat"])
@@ -302,8 +335,8 @@ def calculate(event="None"):
         pass
 
     #Read and store the journal file
-    with open(JournalFile, "rt") as in_file:
-        JStatusContent = in_file.read()
+    with open(JournalFile) as f:
+        JStatusContent = f.read()
 
     #Extracting the data from the journal and doing its magic.
     try:
@@ -457,6 +490,7 @@ def calculate(event="None"):
 
 
 #Declaring variables
+SessionID = 0
 CurrentLat = 0.0
 CurrentLong = 0.0
 CurrentHead = 0
@@ -494,7 +528,9 @@ except:
     print("E.Getting Journal Path")
 try:
     LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
-    EDPBConfigFile = LAppdatDdir + "\\EDPlanetBearing\\Config.json"
+    EDPBAppdata = LAppdatDdir + "\\EDPlanetBearing"
+    EDPBLock = EDPBAppdata + "\\Session.lock"
+    EDPBConfigFile = EDPBAppdata + "\\Config.json"
     if not os.path.exists(os.path.dirname(EDPBConfigFile)):
         try:
             os.makedirs(os.path.dirname(EDPBConfigFile))
@@ -630,6 +666,7 @@ PingCB_ttp = CreateToolTip(PingCB, "Audio Feedback")
 
 root.after(PingDelay,AudioFeedBack.PingLoop)
 root.after(100, GetConfigFromFile)
+root.after(0, SingleInstance,True)
 
 root.protocol("WM_DELETE_WINDOW", callback)
 root.attributes("-topmost", True)
