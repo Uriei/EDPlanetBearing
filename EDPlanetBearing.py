@@ -1,8 +1,9 @@
-import json, math, winreg, os, win32gui, re, random
+import json, math, winreg, os, win32gui, re, random, datetime, time, errno
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
 from sys import argv
+from sys import exit
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import urlopen
@@ -14,15 +15,54 @@ root = Tk()
 style = ttk.Style()
 
 #Definitions
-def callback(ClearLock=True):
+def AddLogEntry(LogEntry):
+    global EDPBAppdata
+    global DebugMode
+    try:
+        if DebugMode:
+            LogFile = EDPBAppdata + "\\" + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
+            EntryLog = str(datetime.datetime.now().hour) + "." + str(datetime.datetime.now().minute) + "." + str(datetime.datetime.now().second) + ": " + str(LogEntry)
+            with open(LogFile,"a") as f:
+                f.write(EntryLog + "\n")
+            print("Entry Log added: " + EntryLog)
+    except Exception as e:
+        print("Log fail: " + str(e))
+
+
+def callback(ClearLock=True,ClearConfig=True):
     global EDPBConfigFile
     global EDPBLock
-    try:
-        if ClearLock:
-            os.remove(EDPBLock)
-        os.remove(EDPBConfigFile)
-    except:
-        print("E.Deleting Appdata files")
+    for x in range(0, 100):
+        try:
+            try:
+                if ClearLock:
+                    os.remove(EDPBLock)
+                    print("Deleted: " + EDPBLock)
+            except OSError as e:
+                print(e)
+                AddLogEntry(e)
+                if e.errno != errno.ENOENT:
+                    raise
+            try:
+                if ClearConfig:
+                    os.remove(EDPBConfigFile)
+                    print("Deleted: " + EDPBConfigFile)
+            except OSError as e:
+                print(e)
+                AddLogEntry(e)
+                if e.errno != errno.ENOENT:
+                    raise
+            print("Succesfully deleted Appdata files")
+            break
+        except OSError as e:
+            AddLogEntry(e)
+            if e.errno != errno.ENOENT:
+                raise
+        except:
+            print("E.Deleting Appdata files")
+            AddLogEntry("Deleting Appdata files")
+            time.sleep(0.01)
+
     observer.stop()
     observer.join()
     root.destroy()
@@ -37,7 +77,7 @@ def SingleInstance(FirstRun=False):
     global EDPBLock
     global SessionID
     try:
-        if not os.path.exists(EDPBLock) or FirstRun:
+        if FirstRun:
             try:
                 SessionID = str(random.randrange(0, 1000000000))
                 with open(EDPBLock,"w") as f:
@@ -46,22 +86,29 @@ def SingleInstance(FirstRun=False):
                 root.after(1000,SingleInstance)
             except Exception as e: # Guard against race condition
                 print("E.Creating SessionLock file: " + str(e))
+                AddLogEntry(e)
                 callback()
+        elif not os.path.exists(EDPBLock):
+            print("SessionLock file missing, closing.")
+            callback()
         else:
             try:
                 with open(EDPBLock) as f:
                     EDPBLockID = f.read()
                 if EDPBLockID != SessionID:
                     print("New session ID detected, closing instance.")
-                    callback(False)
+                    callback(False,False)
                 else:
                     root.after(1000,SingleInstance)
             except Exception as e: # Guard against race condition
                 print("E.Checking Session Lock: " + str(e))
+                AddLogEntry(e)
                 callback(False)
 
-    except:
-        print("E.Getting Appdata Path")
+    except Exception as e:
+        print("E.Single Instancing: " + str(e))
+        AddLogEntry(e)
+
 
 def dragwin(event):
     x = mainframe.winfo_pointerx() - offsetx
@@ -102,6 +149,7 @@ def resize(root, InfoHudLevel, StartingUp=False):
         root.geometry("%dx%d+%d+%d" % (w, h, x, y))
     except Exception as e:
         print("E05: " + str(e))
+        AddLogEntry(e)
         print("Error on resizing")
 
 class CreateToolTip(object):
@@ -192,10 +240,12 @@ class JournalUpdate(FileSystemEventHandler):
                                     print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
                     except Exception as e:
                         print("E.EDSM: "+str(e))
+                        AddLogEntry(e)
                     break
         except Exception as e:
             print("E.Journal read and parse: "+str(e))
-        Calculate()
+            AddLogEntry(e)
+        root.after(0,Calculate)
 
 class WindowMgr:
     """Encapsulates some calls to the winapi for window management"""
@@ -223,9 +273,12 @@ class WindowMgr:
         win32gui.SetForegroundWindow(self._handle)
 
 def FocusElite():
-    w = WindowMgr()
-    w.find_window("FrontierDevelopmentsAppWinClass")
-    w.set_foreground()
+    try:
+        w = WindowMgr()
+        w.find_window("FrontierDevelopmentsAppWinClass")
+        w.set_foreground()
+    except:
+        pass
 
 class AudioFeedBack:
     def Start():
@@ -246,6 +299,7 @@ class AudioFeedBack:
             print("Audio system started")
         except Exception as e:
             print("E.Starting Audio:" + str(e))
+            AddLogEntry(e)
     def PingLoop():
         try:
             global PingDelay
@@ -268,6 +322,7 @@ class AudioFeedBack:
                     sink.update()
         except Exception as e:
             print("E.Playing Audio(Loop):" + str(e))
+            AddLogEntry(e)
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
 
@@ -285,20 +340,39 @@ class AudioFeedBack:
             print("Audio Mode set to: " + str(AudioMode) + " - " + str(PingCB["image"]))
         except Exception as e:
             print("E.Setting Audio Feedback image: " + str(e))
+            AddLogEntry(e)
     def Stop():
         pass
 
-def GetConfigFromFile(): #Gets config from config file if exists and applies it
+def GetConfigFromFile(Startup=False): #Gets config from config file if exists and applies it
     global EDPBConfigFile
     global AudioMode
+    global InfoHudLevel
     if os.path.exists(EDPBConfigFile):
         try:
             with open(EDPBConfigFile) as f:
                 EDPBConfigContent = f.read().lower()
+            if "close" in EDPBConfigContent:
+                callback()
             Configs = json.loads(EDPBConfigContent)
+            try:
+                DstLat = float(Configs["lat"])
+                DstLong = float(Configs["long"])
+            except:
+                print("E.Couldn't load coords from existing config file.")
+                AddLogEntry("E.Couldn't load coords from existing config file.")
+                InfoHudLevel = 0
+                resize(root, InfoHudLevel)
+                DestinationCoords.set("")
+                AudioFeedBack.PingCycleMode(0)
+                root.after(500, Calculate)
+                try:
+                    os.remove(EDPBConfigFile)
+                except:
+                    print("E.Deleting empty config file")
+                    AddLogEntry("Deleting empty config file")
+                raise
 
-            DstLat = float(Configs["lat"])
-            DstLong = float(Configs["long"])
             try:
                 AudioFeedBack.PingCycleMode(int(Configs["audio"]))
             except:
@@ -307,24 +381,25 @@ def GetConfigFromFile(): #Gets config from config file if exists and applies it
                 DstLat = 0.0
 
             DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
-            root.after(100,FocusElite)
-
+            if Startup:
+                root.after(100,FocusElite)
+            elif InfoHudLevel == 0:
+                root.after(0, Calculate)
             #Disable GUI
             if str(coords_entry["state"]) == "normal":
                 coords_entry["state"] = "disabled"
                 print("GUI Disabled")
         except Exception as e:
             print("E.Reading Config file: " + str(e))
+            AddLogEntry(e)
             if str(coords_entry["state"]) != "normal":
                 coords_entry["state"] = "normal"
                 print("GUI Enabled")
-
     else:
-        if str(PingCB["state"]) != "normal" or str(coords_entry["state"]) != "normal":
-            PingCB["state"] = "normal"
+        if str(coords_entry["state"]) != "normal":
             coords_entry["state"] = "normal"
             print("GUI Enabled")
-    root.after(5000, GetConfigFromFile)
+    root.after(2000, GetConfigFromFile)
 
 def Calculate(event="None"):
     #
@@ -498,12 +573,15 @@ def Calculate(event="None"):
                         resize(root, InfoHudLevel)
                     except Exception as e:
                         print("E02: " + str(e))
+                        AddLogEntry(e)
                     print("_" * 20)
             except Exception as e:
                 print("E03: " + str(e))
+                AddLogEntry(e)
                 print("Error on calculation")
         except Exception as e:
             print("E01: " + str(e))
+            AddLogEntry(e)
             print("No Destination coords")
             DestHeading.set("")
             DestHeadingL.set("")
@@ -511,9 +589,11 @@ def Calculate(event="None"):
             resize(root, 0)
     except Exception as e:
         print("E04: " + str(e))
+        AddLogEntry(e)
 
 
 #Declaring variables
+DebugMode = False
 SessionID = 0
 CurrentLat = 0.0
 CurrentLong = 0.0
@@ -555,6 +635,7 @@ try:
     observer.start()
 except:
     print("E.Getting Journal Path")
+    AddLogEntry("Getting Journal Path")
 try:
     LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
     EDPBAppdata = LAppdatDdir + "\\EDPlanetBearing"
@@ -564,10 +645,12 @@ try:
         try:
             os.makedirs(os.path.dirname(EDPBConfigFile))
         except OSError as exc: # Guard against race condition
+            AddLogEntry(exc)
             if exc.errno != errno.EEXIST:
                 raise
 except:
     print("E.Getting Appdata Path")
+    AddLogEntry("Getting Appdata Path")
 
 style.theme_create("EDBearing", parent="clam", settings=None)
 
@@ -663,12 +746,19 @@ for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 def getopts(argv):
     opts = {}  # Empty dictionary to store key-value pairs.
     while argv:  # While there are arguments left to parse...
-        if argv[0][0] == "+":  # Found a "-name value" pair.
-            opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
+        try:
+            if argv[0][0] == "+":  # Found a "-name value" pair.
+                opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
+        except:
+            pass
         argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
     return opts
 try:
     myargs = getopts(argv)
+    if "+debug" in argv:
+        DebugMode = True
+    if "+close" in argv:
+        root.after(0,callback)
     if "+lat" in myargs and "+long" in myargs:
         ArgLat = myargs["+lat"]
         ArgLong = myargs["+long"]
@@ -678,10 +768,12 @@ try:
             os.remove(EDPBConfigFile)
         except Exception as e:
             print("E.Deleting config file: " + str(e))
+            AddLogEntry(e)
     if "+audio" in myargs:
         AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
 except Exception as e:
     print (e)
+    AddLogEntry(e)
 
 #Add Tooltips
 CloseB_ttp = CreateToolTip(CloseB, "Close")
@@ -693,7 +785,7 @@ PingCB_ttp = CreateToolTip(PingCB, \
 "Green = All the time")
 
 root.after(PingDelay,AudioFeedBack.PingLoop)
-root.after(100, GetConfigFromFile)
+root.after(100, GetConfigFromFile, True)
 root.after(100, SingleInstance,True)
 
 root.protocol("WM_DELETE_WINDOW", callback)
