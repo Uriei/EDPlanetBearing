@@ -4,7 +4,10 @@ This is an app to calculate the heading you need to follow to reach an specific 
 
 - It can tell you the heading you need to aim to reach your destination,
 - also adds some direction arrows around the heading so you can check even faster in which general direction you need to go,
-- and optional audio feedback for the same purpose. This audio feedback has 3 modes, Red (no audio), Yellow (deviation alerts only, 45°), and Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
+- and optional audio feedback for the same purpose. This audio feedback has 3 modes, ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio0.png "No Audio Feedback")
+ Red (no audio), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio1.png "Deviation alert only")
+ Yellow (deviation alerts only, 45°), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio2.png "Constant audio feedback")
+ and Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
 *I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
 
 To use it you have several options.
@@ -16,7 +19,7 @@ You can start the app with command line as:<br>
 ```EDPlanetBearing.exe +lat 1.2345 +long -98.7654 +audio 0```
 - +lat = Latitude (duh!)
 - +long = Longitude (duh again!)
-- +audio = Audio mode you want to use, 0 for no audio, 1 for only deviation alerts (over 45°), 2 for constant audio feedback.
+- +audio = Audio mode you want to use, 0 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio0.png "No Audio Feedback") no audio, 1 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio1.png "Deviation alert only") only deviation alerts (over 45°), 2 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio2.png "Constant audio feedback") constant audio feedback.
 
 ### Using the config file:
 The app will create a folder in your Local Appdata folder ```%localappdata%/EDPlanetBearing``` inside this folder you can create a file called `Config.json` in which you can input the same info as in the command line way, but json formatted, this is:<br>
