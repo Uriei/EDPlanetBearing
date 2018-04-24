@@ -206,46 +206,54 @@ class CreateToolTip(object):
         if tw:
             tw.destroy()
 
+def UnlockJournal():
+    global JournalLock
+    JournalLock = False
+
 class JournalUpdate(FileSystemEventHandler):
     def on_modified(self, event):
         global Body
         global StarSystem
         global BodyRadius
-        try:
-            JournalList = reversed(os.listdir(eliteJournalPath))
-            for JournalItemFolder in JournalList:
-                if "Journal." in JournalItemFolder:
-                    print("Reading Journal: "+JournalItemFolder)
-                    JournalItemFile = eliteJournalPath + JournalItemFolder
-                    with open(JournalItemFile) as f:
-                        JContent = reversed(f.readlines())
-                    for JEntry in JContent:
-                        JEvent = json.loads(JEntry)
-                        if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
-                            if Body == JEvent["Body"]:
-                                raise Exception("Same body, preventing extra polls to EDSM")
+        global JournalLock
+        if not JournalLock:
+            try:
+                JournalList = reversed(os.listdir(eliteJournalPath))
+                for JournalItemFolder in JournalList:
+                    if "Journal." in JournalItemFolder:
+                        print("Reading Journal: "+JournalItemFolder)
+                        JournalItemFile = eliteJournalPath + JournalItemFolder
+                        with open(JournalItemFile) as f:
+                            JContent = reversed(f.readlines())
+                        for JEntry in JContent:
+                            JEvent = json.loads(JEntry)
+                            if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
+                                if Body == JEvent["Body"]:
+                                    raise Exception("Same body, preventing extra polls to EDSM")
+                                    break
+                                StarSystem = JEvent["StarSystem"]
+                                Body = JEvent["Body"]
                                 break
-                            StarSystem = JEvent["StarSystem"]
-                            Body = JEvent["Body"]
-                            break
-                    try:
-                        if StarSystem != "" and Body != "":
-                            BodyRadius = 0
-                            EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
-                            EDSMSystem = json.loads(EDSMraw)
-                            EDSMBodies = EDSMSystem["bodies"]
-                            for BodyNameRaw in EDSMBodies:
-                                if BodyNameRaw["name"] == Body:
-                                    BodyRadius = BodyNameRaw["radius"] * 1000
-                                    print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
-                    except Exception as e:
-                        print("E.EDSM: "+str(e))
-                        AddLogEntry(e)
-                    break
-        except Exception as e:
-            print("E.Journal read and parse: "+str(e))
-            AddLogEntry(e)
-        root.after(0,Calculate)
+                        try:
+                            if StarSystem != "" and Body != "":
+                                BodyRadius = 0
+                                EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                                EDSMSystem = json.loads(EDSMraw)
+                                EDSMBodies = EDSMSystem["bodies"]
+                                for BodyNameRaw in EDSMBodies:
+                                    if BodyNameRaw["name"] == Body:
+                                        BodyRadius = BodyNameRaw["radius"] * 1000
+                                        print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                        except Exception as e:
+                            print("E.EDSM: "+str(e))
+                            AddLogEntry(e)
+                        break
+            except Exception as e:
+                print("E.Journal read and parse: "+str(e))
+                AddLogEntry(e)
+            JournalLock = True
+            root.after(200,UnlockJournal)
+            root.after(0,Calculate)
 
 class WindowMgr:
     """Encapsulates some calls to the winapi for window management"""
@@ -318,7 +326,7 @@ class AudioFeedBack:
                     source.position = [PingPosX, source.position[1], PingPosZ]
                     source.pitch = PingPitch
                     source.queue(data)
-                    print("Ping at: " + str(source.position))
+                    #print("Ping at: " + str(source.position))
                     sink.update()
         except Exception as e:
             print("E.Playing Audio(Loop):" + str(e))
@@ -605,6 +613,7 @@ offsety = 0
 StarSystem = ""
 Body = ""
 BodyRadius = 0
+JournalLock = False
 InfoHudLevel = 0
 PingPosX = 0
 sound_beep = "Beep.wav" #Default sound file
