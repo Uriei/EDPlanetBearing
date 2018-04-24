@@ -6,8 +6,7 @@ This is an app to calculate the heading you need to follow to reach an specific 
 - also adds some direction arrows around the heading so you can check even faster in which general direction you need to go,
 - and optional audio feedback for the same purpose. This audio feedback has 3 modes, ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio0.png "No Audio Feedback")
  Red (no audio), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio1.png "Deviation alert only")
- Yellow (deviation alerts only, 45°), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio2.png "Constant audio feedback")
- and Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
+ Yellow (deviation alerts only, 45°), and ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio2.png "Constant audio feedback") Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
 *I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
 
 To use it you have several options.
