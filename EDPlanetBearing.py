@@ -579,7 +579,7 @@ def Calculate(event="None"):
                             #Angle of descent
                             DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
                             DestHeading.set(str(Bearing) + "°")
-                            if DescentAngle <= -5 and Distance_meters < 1000000:
+                            if DescentAngle <= -5 and Distance_meters < 1000000 and FlagSRV != 0 and CurrentAlt > 2500:
                                 DestHeadingD.set(str(DescentAngle) + "°")
                                 DestHeadingD_Lab.config(foreground="orange")
                                 DestDistance_Lab.grid(column=2, columnspan=7, row=3, sticky=(N, W, E))
