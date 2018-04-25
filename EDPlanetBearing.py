@@ -348,6 +348,7 @@ def GetConfigFromFile(Startup=False): #Gets config from config file if exists an
     global EDPBConfigFile
     global AudioMode
     global InfoHudLevel
+    global UsingConfigFile
     if os.path.exists(EDPBConfigFile):
         try:
             with open(EDPBConfigFile) as f:
@@ -375,6 +376,7 @@ def GetConfigFromFile(Startup=False): #Gets config from config file if exists an
 
             try:
                 AudioFeedBack.PingCycleMode(int(Configs["audio"]))
+                UsingConfigFile = True
             except:
                 pass
             if DstLat == -0:
@@ -406,6 +408,7 @@ def Calculate(event="None"):
     LeftArrow = ""
     RightArrow = ""
     global InfoHudLevel
+    global UsingConfigFile
     global PingPosX
     global PingPosZ
     global PingPitch
@@ -572,10 +575,10 @@ def Calculate(event="None"):
                             Distance = format(Distance, ",d")
                             DestDistance.set(str(Distance)+" "+DisScale)
 
-                            if Distance_meters < 2000 and FlagSRV != 0:
+                            if (Distance_meters + CurrentAlt < 2000 and FlagSRV != 0) or (Distance_meters < 250 and FlagSRV == 0):
                                 AudioFeedBack.PingCycleMode(0)
-                            elif  Distance_meters < 250 and FlagSRV == 0:
-                                AudioFeedBack.PingCycleMode(0)
+                                if UsingConfigFile:
+                                    callback()
 
                             #Angle of descent
                             DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
@@ -618,6 +621,7 @@ def Calculate(event="None"):
 
 
 #Declaring variables
+UsingConfigFile = False
 DebugMode = False
 SessionID = 0
 CurrentLat = 0.0
