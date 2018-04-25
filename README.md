@@ -4,6 +4,7 @@ This is an app to calculate the heading you need to follow to reach an specific 
 
 - It can tell you the heading you need to aim to reach your destination,
 - also adds some direction arrows around the heading so you can check even faster in which general direction you need to go,
+- and show you the angle of descent to reach the destination once certain conditions met: distance available, angle below 0º, etc,
 - and optional audio feedback for the same purpose. This audio feedback has 3 modes, ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio0.png "No Audio Feedback")
  Red (no audio), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio1.png "Deviation alert only")
  Yellow (deviation alerts only, 45°), and ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/BMPingAudio2.png "Constant audio feedback") Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
