@@ -446,11 +446,13 @@ def Calculate(event="None"):
         #Checking if coordinates are relevant or not
         FlagDocked = StatusFlags & 1<<0
         FlagLanded = StatusFlags & 1<<1
+        FlagSRV = 67108864 - (StatusFlags & (1<<26))
         FlagNoCoords = 2097152 - (StatusFlags & (1<<21))
 
         NoRun = FlagDocked+FlagNoCoords+FlagLanded
         print("Flags:" + str(StatusFlags))
         print("FlagDocked:" + str(FlagDocked))
+        print("FlagSRV:" + str(FlagSRV))
         print("FlagLanded:" + str(FlagLanded))
         print("FlagNoCoords:" + str(FlagNoCoords))
         print("NoRun:" + str(NoRun))
@@ -461,7 +463,8 @@ def Calculate(event="None"):
             try:
                 if NoRun != 0 :
                     print("Coords irrelevant")
-                    resize(root, 0)
+                    InfoHudLevel = 0
+                    resize(root, InfoHudLevel)
                 else:
                     try:
 
@@ -548,26 +551,45 @@ def Calculate(event="None"):
                         print(LeftArrow + RightArrow)
                         InfoHudLevel = 1
 
-                        #Calculate distance
+                        #Calculate distance and angle of descent
                         if BodyRadius > 0:
+                            #Distance
                             DifLat = math.radians(DstLat - CurrentLatDeg)
                             DifLong = math.radians(DstLong - CurrentLongDeg)
 
                             Dis1 = math.sin(DifLat / 2)**2 + math.cos(CurrentLatRad) * math.cos(DstLatRad) * math.sin(DifLong / 2)**2
                             Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
-                            Distance = int(BodyRadius * Dis2)
+                            Distance_meters = int(BodyRadius * Dis2)
 
                             InfoHudLevel = 2
-                            if Distance >= 100000:
-                                Distance = int(Distance / 1000)
+                            if Distance_meters >= 100000:
+                                Distance = int(Distance_meters / 1000)
                                 DisScale = "km"
                             else:
+                                Distance = Distance_meters
                                 DisScale = "m"
                             Distance = format(Distance, ",d")
                             DestDistance.set(str(Distance)+" "+DisScale)
 
+                            if Distance_meters < 2000 and FlagSRV != 0:
+                                AudioFeedBack.PingCycleMode(0)
+                            elif  Distance_meters < 250 and FlagSRV == 0:
+                                AudioFeedBack.PingCycleMode(0)
+
+                            #Angle of descent
+                            DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
+                            DestHeading.set(str(Bearing) + "°")
+                            if DescentAngle <= -5 and Distance_meters < 1000000:
+                                DestHeadingD.set(str(DescentAngle) + "°")
+                                DestHeadingD_Lab.config(foreground="orange")
+                                DestDistance_Lab.grid(column=2, columnspan=7, row=3, sticky=(N, W, E))
+                                if DescentAngle <= -60:
+                                    DestHeadingD_Lab.config(foreground="red")
+                            else:
+                                DestHeadingD.set("")
+                                DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
+
                         #Updating indicators
-                        DestHeading.set(str(Bearing) + "°")
                         DestHeadingL.set(LeftArrow)
                         DestHeadingR.set(RightArrow)
                         resize(root, InfoHudLevel)
@@ -583,10 +605,12 @@ def Calculate(event="None"):
             print("E01: " + str(e))
             AddLogEntry(e)
             print("No Destination coords")
+            DestHeadingD.set("")
             DestHeading.set("")
             DestHeadingL.set("")
             DestHeadingR.set("")
-            resize(root, 0)
+            InfoHudLevel = 0
+            resize(root, InfoHudLevel)
     except Exception as e:
         print("E04: " + str(e))
         AddLogEntry(e)
@@ -706,6 +730,7 @@ style.theme_settings("EDBearing", {
 
 DestinationCoords = StringVar()
 DestHeading = StringVar()
+DestHeadingD = StringVar()
 DestHeadingR = StringVar()
 DestHeadingL = StringVar()
 DestDistance = StringVar()
@@ -730,7 +755,11 @@ ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica"
 ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
 ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=9, columnspan=2, row=2, sticky=(W))
 
-ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 8)).grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
+DestHeadingD_Lab = ttk.Label(mainframe, textvariable=DestHeadingD, justify=RIGHT, font=("Helvetica", 10))
+DestHeadingD_Lab.grid(column=8, columnspan=4, row=3, sticky=(E))
+
+DestDistance_Lab = ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 9))
+DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
 
 CloseB = ttk.Button(mainframe, text=" X ", command=callback)
 CloseB.grid(column=10, row=1, sticky=(E))
@@ -738,7 +767,7 @@ CloseB.grid(column=10, row=1, sticky=(E))
 PingCB = ttk.Button(mainframe, image=BMPingAudio0, command=AudioFeedBack.PingCycleMode)
 PingCB.grid(column=1, row=1, sticky=(E))
 
-resize(root, 0, True)
+resize(root, InfoHudLevel, True)
 
 for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
