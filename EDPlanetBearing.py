@@ -411,6 +411,7 @@ def Calculate(event="None"):
     global PingPitch
     global DirectionOverMargin
 
+    print(str(datetime.datetime.now().hour) + "." + str(datetime.datetime.now().minute) + "." + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) )
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
     Destination = str(DestinationRaw).split()
     print("Typed Coords: " + DestinationCoords.get())
@@ -579,15 +580,15 @@ def Calculate(event="None"):
                             #Angle of descent
                             DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
                             DestHeading.set(str(Bearing) + "°")
-                            if DescentAngle <= -5 and Distance_meters < 1000000 and FlagSRV != 0 and CurrentAlt > 2500:
+                            if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV != 0 and CurrentAlt > 2500:
                                 DestHeadingD.set(str(DescentAngle) + "°")
                                 DestHeadingD_Lab.config(foreground="orange")
-                                DestDistance_Lab.grid(column=2, columnspan=7, row=3, sticky=(N, W, E))
-                                if DescentAngle <= -60:
+                                DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                                if DescentAngle <= -60 or DescentAngle > -5 :
                                     DestHeadingD_Lab.config(foreground="red")
+                                    DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
                             else:
                                 DestHeadingD.set("")
-                                DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
 
                         #Updating indicators
                         DestHeadingL.set(LeftArrow)
@@ -792,7 +793,7 @@ try:
         ArgLat = myargs["+lat"]
         ArgLong = myargs["+long"]
         DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
-        root.after(100,FocusElite)
+        root.after(250,FocusElite)
         try:
             os.remove(EDPBConfigFile)
         except Exception as e:
