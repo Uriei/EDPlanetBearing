@@ -211,37 +211,48 @@ class JournalUpdate(FileSystemEventHandler):
         global Body
         global StarSystem
         global BodyRadius
+        EDSMdone = False
         try:
             JournalList = reversed(os.listdir(eliteJournalPath))
             for JournalItemFolder in JournalList:
+                if EDSMdone:
+                    print("I'm done")
+                    break
                 if "Journal." in JournalItemFolder:
                     print("Reading Journal: "+JournalItemFolder)
                     JournalItemFile = eliteJournalPath + JournalItemFolder
                     with open(JournalItemFile) as f:
                         JContent = reversed(f.readlines())
                     for JEntry in JContent:
+                        if EDSMdone:
+                            print("I'm done")
+                            break
                         JEvent = json.loads(JEntry)
                         if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
                             if Body == JEvent["Body"]:
                                 raise Exception("Same body, preventing extra polls to EDSM")
+                                EDSMdone = True
                                 break
-                            StarSystem = JEvent["StarSystem"]
-                            Body = JEvent["Body"]
-                            break
+                            else:
+                                StarSystem = JEvent["StarSystem"]
+                                Body = JEvent["Body"]
+                                EDSMdone = True
                     try:
                         if StarSystem != "" and Body != "":
                             BodyRadius = 0
                             EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                            print("Extracted data from " + StarSystem)
                             EDSMSystem = json.loads(EDSMraw)
                             EDSMBodies = EDSMSystem["bodies"]
                             for BodyNameRaw in EDSMBodies:
                                 if BodyNameRaw["name"] == Body:
                                     BodyRadius = BodyNameRaw["radius"] * 1000
                                     print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                                    EDSMdone = True
+                                    break
                     except Exception as e:
                         print("E.EDSM: "+str(e))
                         AddLogEntry(e)
-                    break
         except Exception as e:
             print("E.Journal read and parse: "+str(e))
             AddLogEntry(e)
@@ -325,6 +336,37 @@ class AudioFeedBack:
             AddLogEntry(e)
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
+    def DestinationReached():
+        try:
+            global PingPitch
+            global InfoHudLevel
+            global sink
+            global source
+            global data
+            global AudioMode
+            global DirectionOverMargin
+
+            PingPosX = 0.0
+            PingPosZ = 0.0
+            PingPitch = 1.5
+
+            if InfoHudLevel != 0:
+                if AudioMode  != 0:
+                    root.after(0,AudioFeedBack.PingCycleMode,0)
+                    source.position = [0.0, source.position[1], 0.0]
+                    source.pitch = PingPitch
+                    source.queue(data)
+                    source.queue(data)
+                    source.queue(data)
+                    #print("Ping at: " + str(source.position))
+                    sink.update()
+        except Exception as e:
+            print("E.Playing Audio(Reached):" + str(e))
+            AddLogEntry(e)
+        finally:
+            if UsingConfigFile:
+                root.after(0,callback)
+
 
     def PingCycleMode(AudioModeSet = -1):
         global AudioMode
@@ -450,7 +492,7 @@ def Calculate(event="None"):
         #Checking if coordinates are relevant or not
         FlagDocked = StatusFlags & 1<<0
         FlagLanded = StatusFlags & 1<<1
-        FlagSRV = 67108864 - (StatusFlags & (1<<26))
+        FlagSRV = StatusFlags & (1<<26)
         FlagNoCoords = 2097152 - (StatusFlags & (1<<21))
 
         NoRun = FlagDocked+FlagNoCoords+FlagLanded
@@ -575,23 +617,33 @@ def Calculate(event="None"):
                             Distance = format(Distance, ",d")
                             DestDistance.set(str(Distance)+" "+DisScale)
 
-                            if (Distance_meters + CurrentAlt < 2000 and FlagSRV != 0) or (Distance_meters < 250 and FlagSRV == 0):
-                                AudioFeedBack.PingCycleMode(0)
-                                if UsingConfigFile:
-                                    callback()
+                            try:
+                                if (Distance_meters + CurrentAlt < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
+                                    AudioFeedBack.DestinationReached()
+                            except:
+                                print("E.Shutting when destination is reached")
+
+                            DestHeading.set(str(Bearing) + "°")
 
                             #Angle of descent
                             DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
-                            DestHeading.set(str(Bearing) + "°")
-                            if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV != 0 and CurrentAlt > 2500:
+
+                            if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV == 0 and CurrentAlt > 2500:
                                 DestHeadingD.set(str(DescentAngle) + "°")
-                                DestHeadingD_Lab.config(foreground="orange")
                                 DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                                DestHeadingD_Lab.config(foreground="orange")
                                 if DescentAngle <= -60 or DescentAngle > -5 :
-                                    DestHeadingD_Lab.config(foreground="red")
                                     DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                                    DestHeadingD_Lab.config(foreground="red")
                             else:
                                 DestHeadingD.set("")
+                        else:
+                            DestHeading.set(str(Bearing) + "°")
+                            try:
+                                if (DstLat - CurrentLatDeg < 0.01 and DstLong - CurrentLongDeg < 0.01):
+                                    AudioFeedBack.DestinationReached()
+                            except:
+                                print("E.Shutting when destination is reached")
 
                         #Updating indicators
                         DestHeadingL.set(LeftArrow)
