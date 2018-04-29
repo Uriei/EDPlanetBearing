@@ -2,40 +2,33 @@ import json, math, winreg, os, win32gui, re, random, datetime, time, errno
 from tkinter import *
 from tkinter import ttk
 import tkinter as tk
-from sys import argv
-from sys import exit
+from sys import argv, exit
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import urlopen
 from openal.audio import SoundSink, SoundSource
 from openal.loaders import load_wav_file
 
-#Creates the app window
-root = Tk()
-style = ttk.Style()
-
-#Definitions
-def AddLogEntry(LogEntry):
+def AddLogEntry(LogEntry): #Adds an entry to the log file.
     global EDPBAppdata
     global DebugMode
     try:
         if DebugMode:
-            LogFile = EDPBAppdata + "\\" + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
-            EntryLog = str(datetime.datetime.now().hour) + "." + str(datetime.datetime.now().minute) + "." + str(datetime.datetime.now().second) + ": " + str(LogEntry)
+            LogFile = EDPBAppdata + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
+            EntryLog = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(LogEntry)
             with open(LogFile,"a") as f:
                 f.write(EntryLog + "\n")
             print("Entry Log added: " + EntryLog)
     except Exception as e:
-        print("Log fail: " + str(e))
+        print("Log failed: " + str(e))
 
-
-def callback(ClearLock=True,ClearConfig=True):
+def ClearFiles(File="All"):
     global EDPBConfigFile
     global EDPBLock
     for x in range(0, 100):
         try:
             try:
-                if ClearLock:
+                if File == "SessionFile" or File == "All":
                     os.remove(EDPBLock)
                     print("Deleted: " + EDPBLock)
             except OSError as e:
@@ -44,7 +37,7 @@ def callback(ClearLock=True,ClearConfig=True):
                 if e.errno != errno.ENOENT:
                     raise
             try:
-                if ClearConfig:
+                if File == "ConfigFile" or File == "All":
                     os.remove(EDPBConfigFile)
                     print("Deleted: " + EDPBConfigFile)
             except OSError as e:
@@ -52,21 +45,33 @@ def callback(ClearLock=True,ClearConfig=True):
                 AddLogEntry(e)
                 if e.errno != errno.ENOENT:
                     raise
-            print("Succesfully deleted Appdata files")
+            print("Succesfully deleted files")
             break
         except OSError as e:
             AddLogEntry(e)
             if e.errno != errno.ENOENT:
                 raise
         except:
-            print("E.Deleting Appdata files")
-            AddLogEntry("Deleting Appdata files")
+            print("E.Deleting files")
+            AddLogEntry("Deleting files")
             time.sleep(0.01)
 
-    observer.stop()
-    observer.join()
-    root.destroy()
-    exit()
+def callback(ClearLock=True,ClearConfig=True): #Clean files and close the app.
+    if ClearLock and ClearConfig:
+        ClearFiles("All")
+    elif ClearLock:
+        ClearFiles("SessionFile")
+    elif ClearConfig:
+        ClearFiles("ConfigFile")
+
+    try:
+        observer.stop()
+        observer.join()
+        root.destroy()
+        exit()
+    except Exception as e:
+        AddLogEntry(e)
+        exit()
 
 def resource_path(relative):
     if hasattr(sys, "_MEIPASS"):
@@ -109,6 +114,49 @@ def SingleInstance(FirstRun=False):
         print("E.Single Instancing: " + str(e))
         AddLogEntry(e)
 
+def getopts(argv):
+    opts = {}  # Empty dictionary to store key-value pairs.
+    while argv:  # While there are arguments left to parse...
+        try:
+            if argv[0][0] == "+":  # Found a "-name value" pair.
+                opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
+        except:
+            pass
+        argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
+    return opts
+
+class WindowMgr:
+    """Encapsulates some calls to the winapi for window management"""
+
+    def __init__ (self):
+        """Constructor"""
+        self._handle = None
+
+    def find_window(self, class_name, window_name=None):
+        """find a window by its class_name"""
+        self._handle = win32gui.FindWindow(class_name, window_name)
+
+    def _window_enum_callback(self, hwnd, wildcard):
+        """Pass to win32gui.EnumWindows() to check all the opened windows"""
+        if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
+            self._handle = hwnd
+
+    def find_window_wildcard(self, wildcard):
+        """find a window whose title matches the wildcard regex"""
+        self._handle = None
+        win32gui.EnumWindows(self._window_enum_callback, wildcard)
+
+    def set_foreground(self):
+        """put the window in the foreground"""
+        win32gui.SetForegroundWindow(self._handle)
+
+def FocusElite():
+    try:
+        w = WindowMgr()
+        w.find_window("FrontierDevelopmentsAppWinClass")
+        w.set_foreground()
+    except:
+        pass
 
 def dragwin(event):
     x = mainframe.winfo_pointerx() - offsetx
@@ -120,7 +168,7 @@ def clickwin(event):
     offsetx = event.x
     offsety = event.y
 
-def resize(root, InfoHudLevel, StartingUp=False):
+def resize(root, InfoHudLevel=0, StartingUp=False):
     #Creating window parameters
     w = 185 # width for the Tk root
     #h = 40 # height for the Tk root
@@ -206,90 +254,243 @@ class CreateToolTip(object):
         if tw:
             tw.destroy()
 
-class JournalUpdate(FileSystemEventHandler):
-    def on_modified(self, event):
+class ReadJournalFile:
+    def Status():
+        global StatusFile
+        global NoRun
+        global FlagSRV
+        global CurrentLatDeg
+        global CurrentLongDeg
+        global CurrentHead
+        global CurrentAlt
+
+        with open(StatusFile) as f:
+            JStatusContent = f.read()
+
+        try:
+            Status = json.loads(JStatusContent)
+            StatusFlags = Status["Flags"]
+
+            FlagDocked = StatusFlags & 1<<0 # If ship is docked
+            FlagLanded = StatusFlags & 1<<1 # If ship is landed
+            FlagSRV = StatusFlags & (1<<26) # If driving SRV
+            FlagNoCoords = 2097152 - (StatusFlags & (1<<21)) # If coordinates are not available
+            NoRun = FlagDocked+FlagLanded+FlagNoCoords
+
+            print("Flags:" + str(StatusFlags))
+            print("FlagDocked:" + str(FlagDocked))
+            print("FlagLanded:" + str(FlagLanded))
+            print("FlagNoCoords:" + str(FlagNoCoords))
+            print("FlagSRV:" + str(FlagSRV))
+            print("NoRun:" + str(NoRun))
+
+            CurrentLatDeg = round(Status["Latitude"],4)
+            CurrentLongDeg = round(Status["Longitude"],4)
+            CurrentHead = round(Status["Heading"],0)
+            CurrentAlt = round(Status["Altitude"],0)
+            print("Current Lat: " + str(CurrentLatDeg))
+            print("Current Long: " + str(CurrentLongDeg))
+            print("Current Heading: " + str(CurrentHead))
+            print("Current Altitude: " + str(CurrentAlt))
+        except Exception as e:
+            print("Couldn't read Status.json file:" + str(e))
+            AddLogEntry(e)
+
+    def Journal():
+        global eliteJournalPath
         global Body
         global StarSystem
         global BodyRadius
-        EDSMdone = False
+        JournalDone = False
+
+        try:
+            Body
+        except:
+            Body = 'Not set'
+        try:
+            StarSystem
+        except:
+            StarSystem = 'Not set'
+
         try:
             JournalList = reversed(os.listdir(eliteJournalPath))
             for JournalItemFolder in JournalList:
-                if EDSMdone:
-                    print("I'm done")
+                if JournalDone:
                     break
                 if "Journal." in JournalItemFolder:
-                    print("Reading Journal: "+JournalItemFolder)
+                    print("Reading Journal: " + JournalItemFolder)
                     JournalItemFile = eliteJournalPath + JournalItemFolder
                     with open(JournalItemFile) as f:
                         JContent = reversed(f.readlines())
                     for JEntry in JContent:
-                        if EDSMdone:
-                            print("I'm done")
-                            break
                         JEvent = json.loads(JEntry)
                         if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
                             if Body == JEvent["Body"]:
-                                raise Exception("Same body, preventing extra polls to EDSM")
-                                EDSMdone = True
-                                break
+                                raise Exception("SameBody")
                             else:
                                 StarSystem = JEvent["StarSystem"]
                                 Body = JEvent["Body"]
-                                EDSMdone = True
-                    try:
-                        if StarSystem != "" and Body != "":
-                            BodyRadius = 0
-                            EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
-                            print("Extracted data from " + StarSystem)
-                            EDSMSystem = json.loads(EDSMraw)
-                            EDSMBodies = EDSMSystem["bodies"]
-                            for BodyNameRaw in EDSMBodies:
-                                if BodyNameRaw["name"] == Body:
-                                    BodyRadius = BodyNameRaw["radius"] * 1000
-                                    print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
-                                    EDSMdone = True
-                                    break
-                    except Exception as e:
-                        print("E.EDSM: "+str(e))
-                        AddLogEntry(e)
+                                JournalDone = True
+                                break
+            try:
+                if StarSystem != "Not set" and Body != "Not set":
+                    BodyRadius = 0
+                    EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                    print("Extracted data from " + StarSystem)
+                    EDSMSystem = json.loads(EDSMraw)
+                    EDSMBodies = EDSMSystem["bodies"]
+                    for BodyNameRaw in EDSMBodies:
+                        if BodyNameRaw["name"] == Body:
+                            BodyRadius = BodyNameRaw["radius"] * 1000
+                            print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                            break
+            except Exception as e:
+                print("E.EDSM: "+str(e))
+                AddLogEntry(e)
         except Exception as e:
-            print("E.Journal read and parse: "+str(e))
-            AddLogEntry(e)
-        root.after(0,Calculate)
+            if str(e) == 'SameBody':
+                print("Same body, preventing extra polls to EDSM")
+            else:
+                print("Failed Journal reading.")
+                AddLogEntry(e)
 
-class WindowMgr:
-    """Encapsulates some calls to the winapi for window management"""
+class JournalUpdate(FileSystemEventHandler):
+    def on_modified(self, event):
+        ReadJournalFile.Journal()
+        ReadJournalFile.Status()
+        Calculate()
 
-    def __init__ (self):
-        """Constructor"""
-        self._handle = None
+def CreateGUI(root):
+    style.theme_create("EDBearing", parent="clam", settings=None)
 
-    def find_window(self, class_name, window_name=None):
-        """find a window by its class_name"""
-        self._handle = win32gui.FindWindow(class_name, window_name)
+    style.theme_settings("EDBearing", {
+        "TFrame": {
+            "map": {
+                "background":       [("active", "black"),
+                                    ("!disabled", "black")],
+                "fieldbackground":  [("!disabled", "black")],
+                "foreground":       [("focus", "black"),
+                                    ("!disabled", "black")]
+                }
+        },
+        "TLabel": {
+            "map": {
+                "background":       [("active", "black"),
+                                    ("!disabled", "black")],
+                "fieldbackground":  [("!disabled", "black")],
+                "foreground":       [("focus", "orange"),
+                                    ("!disabled", "orange")]
+            }
+        },
+        "TEntry": {
+            "configure":            {"insertbackground": "orange"},
+            "map": {
+                "fieldbackground":  [("focus", "white"),
+                                    ("disabled", "black"),
+                                    ("!disabled", "black")],
+                "foreground":       [("focus", "black"),
+                                    ("disabled", "orange"),
+                                    ("!disabled", "orange")]
+            }
+        },
+        "TButton": {
+            "map": {
+                "background":       [("active", "black"),
+                                    ("!disabled", "black")],
+                "foreground":       [("focus", "orange"),
+                                    ("!disabled", "orange")]
+            }
+        },
+        "TCheckbutton": {
+            "map": {
+                "background":       [("active", "black"),
+                                    ("disabled", "black"),
+                                    ("!disabled", "black")],
+                "foreground":       [("focus", "orange"),
+                                    ("disabled", "orange"),
+                                    ("!disabled", "orange")]
+            }
+        }
+    })
 
-    def _window_enum_callback(self, hwnd, wildcard):
-        """Pass to win32gui.EnumWindows() to check all the opened windows"""
-        if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
-            self._handle = hwnd
+    global DestinationCoords
+    global DestHeading
+    global DestHeadingD
+    global DestHeadingR
+    global DestHeadingL
+    global DestDistance
 
-    def find_window_wildcard(self, wildcard):
-        """find a window whose title matches the wildcard regex"""
-        self._handle = None
-        win32gui.EnumWindows(self._window_enum_callback, wildcard)
+    DestinationCoords = StringVar()
+    DestHeading = StringVar()
+    DestHeadingD = StringVar()
+    DestHeadingR = StringVar()
+    DestHeadingL = StringVar()
+    DestDistance = StringVar()
 
-    def set_foreground(self):
-        """put the window in the foreground"""
-        win32gui.SetForegroundWindow(self._handle)
+    style.theme_use("EDBearing")
+    root.title("EDPlanetBearing")
 
-def FocusElite():
+    global mainframe
+    mainframe = ttk.Frame(root, padding="3 3 12 12")
+    mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
+    mainframe.columnconfigure(0, weight=1)
+    mainframe.rowconfigure(0, weight=1)
+
+    mainframe.bind("<ButtonPress-1>",clickwin)
+    mainframe.bind("<B1-Motion>",dragwin)
+
+    global coords_entry
+    coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
+    coords_entry.grid(column=2, columnspan=8, row=1, sticky=(W, E))
+    coords_entry.focus()
+    coords_entry.bind("<Return>", Calculate)
+
+    ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=5, columnspan=6, row=2, sticky=(W, E))
+    ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
+    ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=9, columnspan=2, row=2, sticky=(W))
+
+    global DestHeadingD_Lab
+    DestHeadingD_Lab = ttk.Label(mainframe, textvariable=DestHeadingD, justify=RIGHT, font=("Helvetica", 10))
+    DestHeadingD_Lab.grid(column=8, columnspan=4, row=3, sticky=(E))
+
+    global DestDistance_Lab
+    DestDistance_Lab = ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 9))
+    DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
+
+    CloseB = ttk.Button(mainframe, text=" X ", command=callback)
+    CloseB.grid(column=10, row=1, sticky=(E))
+
+    global PingCB
+    PingCB = ttk.Button(mainframe, image=BMPingAudio0, command=AudioFeedBack.PingCycleMode)
+    PingCB.grid(column=1, row=1, sticky=(E))
+
+    resize(root, InfoHudLevel, True)
+
+    for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+    root.protocol("WM_DELETE_WINDOW", callback)
+    root.attributes("-topmost", True)
+    root.overrideredirect(True)
+
+def GetShellFolders():
+    global eliteJournalPath
+    global EDPBAppdata
+    global StatusFile
     try:
-        w = WindowMgr()
-        w.find_window("FrontierDevelopmentsAppWinClass")
-        w.set_foreground()
-    except:
-        pass
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+        )
+        JournalDir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
+
+        eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
+        LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
+        EDPBAppdata = LAppdatDdir + "\\EDPlanetBearing\\"
+        StatusFile = eliteJournalPath + "Status.json"
+    except Exception as e:
+        print("E.Getting Journal Path" + str(e))
+        AddLogEntry("Getting Journal Path" + str(e))
+        root.after(0,callback)
 
 class AudioFeedBack:
     def Start():
@@ -298,39 +499,46 @@ class AudioFeedBack:
             global sink
             global source
             global data
+            global PingDelay
+            global PingPosX
+            global PingPosZ
+            global PingPitch
+            sound_beep = "beep.wav" #Default sound file
+            PingDelay = 1000
+            PingPosX = 0.0
+            PingPosZ = 0.0
+            PingPitch = 1.0
 
             sink = SoundSink()
             sink.activate()
-            source = SoundSource(position=[0, 0, 50])
-            source.looping = False
+            source = SoundSource(position=[PingPosX, 0, PingPosZ])
+            #source.looping = False
             source.gain = 50.0
             data = load_wav_file(sound_beep)
-            #source.queue(data)
             sink.play(source)
             print("Audio system started")
         except Exception as e:
             print("E.Starting Audio:" + str(e))
             AddLogEntry(e)
     def PingLoop():
+        global PingDelay
+        global PingPosX
+        global PingPosZ
+        global PingPitch
+        global InfoHudLevel
+        global sink
+        global source
+        global data
+        global AudioMode
+        global DirectionOverMargin
         try:
-            global PingDelay
-            global PingPosX
-            global PingPosZ
-            global PingPitch
-            global InfoHudLevel
-            global sink
-            global source
-            global data
-            global AudioMode
-            global DirectionOverMargin
-
             if InfoHudLevel != 0:
                 if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
                     source.position = [PingPosX, source.position[1], PingPosZ]
                     source.pitch = PingPitch
                     source.queue(data)
-                    #print("Ping at: " + str(source.position))
                     sink.update()
+                    print("Ping at: " + str(source.position))
         except Exception as e:
             print("E.Playing Audio(Loop):" + str(e))
             AddLogEntry(e)
@@ -352,13 +560,15 @@ class AudioFeedBack:
 
             if InfoHudLevel != 0:
                 if AudioMode  != 0:
-                    root.after(0,AudioFeedBack.PingCycleMode,0)
+                    AudioFeedBack.PingCycleMode(0)
+                    source.bufferqueue = [] #Clear any previously queued sound
+                    sink.update()
                     source.position = [0.0, source.position[1], 0.0]
                     source.pitch = PingPitch
                     source.queue(data)
                     source.queue(data)
                     source.queue(data)
-                    #print("Ping at: " + str(source.position))
+                    print("Triple Ping at: " + str(source.position))
                     sink.update()
         except Exception as e:
             print("E.Playing Audio(Reached):" + str(e))
@@ -383,18 +593,44 @@ class AudioFeedBack:
         except Exception as e:
             print("E.Setting Audio Feedback image: " + str(e))
             AddLogEntry(e)
-    def Stop():
-        pass
+
+def GetCLArguments(argv=argv):
+    try:
+        myargs = getopts(argv)
+        if "+debug" in argv:
+            global DebugMode
+            DebugMode = True
+        if "+close" in argv:
+            root.after(0,callback)
+        if "+lat" in myargs and "+long" in myargs:
+            ArgLat = myargs["+lat"]
+            ArgLong = myargs["+long"]
+            DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
+            root.after(250,FocusElite)
+            ClearFiles("ConfigFile")
+        if "+audio" in myargs:
+            AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
+    except Exception as e:
+        print (e)
+        AddLogEntry(e)
 
 def GetConfigFromFile(Startup=False): #Gets config from config file if exists and applies it
     global EDPBConfigFile
     global AudioMode
     global InfoHudLevel
     global UsingConfigFile
+    global EDPBConfigContentPrevious
+    try:
+        EDPBConfigContentPrevious
+    except:
+        EDPBConfigContentPrevious = ''
+
     if os.path.exists(EDPBConfigFile):
         try:
             with open(EDPBConfigFile) as f:
                 EDPBConfigContent = f.read().lower()
+            if EDPBConfigContentPrevious == EDPBConfigContent:
+                raise Exception('SameConfig')
             if "close" in EDPBConfigContent:
                 callback()
             Configs = json.loads(EDPBConfigContent)
@@ -425,8 +661,12 @@ def GetConfigFromFile(Startup=False): #Gets config from config file if exists an
                 DstLat = 0.0
 
             DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+
+            EDPBConfigContentPrevious = EDPBConfigContent
+
             if Startup:
-                root.after(100,FocusElite)
+                root.after(100, FocusElite)
+                root.after(150, Calculate)
             elif InfoHudLevel == 0:
                 root.after(0, Calculate)
             #Disable GUI
@@ -434,447 +674,242 @@ def GetConfigFromFile(Startup=False): #Gets config from config file if exists an
                 coords_entry["state"] = "disabled"
                 print("GUI Disabled")
         except Exception as e:
-            print("E.Reading Config file: " + str(e))
-            AddLogEntry(e)
-            if str(coords_entry["state"]) != "normal":
-                coords_entry["state"] = "normal"
-                print("GUI Enabled")
+            if str(e) == 'SameConfig':
+                pass
+            else:
+                print("E.Reading Config file: " + str(e))
+                AddLogEntry(e)
+                if str(coords_entry["state"]) != "normal":
+                    coords_entry["state"] = "normal"
+                    print("GUI Enabled")
+            EDPBConfigContentPrevious = EDPBConfigContent
     else:
         if str(coords_entry["state"]) != "normal":
             coords_entry["state"] = "normal"
+            EDPBConfigContentPrevious = ''
             print("GUI Enabled")
     root.after(2000, GetConfigFromFile)
 
 def Calculate(event="None"):
-    #
-    LeftArrow = ""
-    RightArrow = ""
+    global NoRun
+    global DstLat
+    global DstLong
     global InfoHudLevel
-    global UsingConfigFile
-    global PingPosX
-    global PingPosZ
-    global PingPitch
-    global DirectionOverMargin
-
-    print(str(datetime.datetime.now().hour) + "." + str(datetime.datetime.now().minute) + "." + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) )
     DestinationRaw = (DestinationCoords.get()).replace(","," ")
     Destination = str(DestinationRaw).split()
-    print("Typed Coords: " + DestinationCoords.get())
-    print("Readable Coords: " + DestinationRaw)
-    print("Coords List: " + str(Destination))
-
-
     try:
         DstLat = float(Destination[0])
         DstLong = float(Destination[1])
         if DstLat == -0:
             DstLat = 0.0
     except:
-        pass
-
+        NoRun = -1
+        print("Destination missing")
     try:
         if "Return" in event.keysym:
             DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+            ReadJournalFile.Status()
+            Calculate()
             FocusElite()
     except:
         pass
 
-    #Read and store the journal file
-    with open(JournalFile) as f:
-        JStatusContent = f.read()
+    if NoRun != 0:
+        print("Coords irrelevant")
+        InfoHudLevel = 0
+        resize(root, InfoHudLevel)
+    else:
+        print("Coords relevant")
+        CalcHeading()
+        CalcDArrows()
+        CalcDistance()
+        CalcAngDesc()
 
-    #Extracting the data from the journal and doing its magic.
+def CalcHeading():
+    global CurrentLatDeg
+    global CurrentLongDeg
+    global DstLat
+    global DstLong
+    global Bearing
+    global InfoHudLevel
     try:
-        Status = json.loads(JStatusContent)
+        CurrentLatRad = math.radians(CurrentLatDeg)
+        CurrentLongRad = math.radians(CurrentLongDeg)
+        DstLatRad = math.radians(float(DstLat))
+        DstLongRad = math.radians(float(DstLong))
 
-        StatusFlags = Status["Flags"]
-
-        #Checking if coordinates are relevant or not
-        FlagDocked = StatusFlags & 1<<0
-        FlagLanded = StatusFlags & 1<<1
-        FlagSRV = StatusFlags & (1<<26)
-        FlagNoCoords = 2097152 - (StatusFlags & (1<<21))
-
-        NoRun = FlagDocked+FlagNoCoords+FlagLanded
-        print("Flags:" + str(StatusFlags))
-        print("FlagDocked:" + str(FlagDocked))
-        print("FlagSRV:" + str(FlagSRV))
-        print("FlagLanded:" + str(FlagLanded))
-        print("FlagNoCoords:" + str(FlagNoCoords))
-        print("NoRun:" + str(NoRun))
-
-        try:
-            DstLat
-            DstLong
-            try:
-                if NoRun != 0 :
-                    print("Coords irrelevant")
-                    InfoHudLevel = 0
-                    resize(root, InfoHudLevel)
-                else:
-                    try:
-
-                        CurrentLat = round(Status["Latitude"],4)
-                        CurrentLong = round(Status["Longitude"],4)
-                        CurrentHead = round(Status["Heading"],0)
-                        CurrentAlt = round(Status["Altitude"],0)
-
-                        print("Coords relevant")
-                        print("Current Lat: " + str(CurrentLat))
-                        print("Current Long: " + str(CurrentLong))
-                        print("Current Heading: " + str(CurrentHead))
-                        print("Current Altitude: " + str(CurrentAlt))
-                        print("Destination Lat: " + str(DstLat))
-                        print("Destination Long: " + str(DstLong))
-
-                        CurrentLatDeg = Status["Latitude"]
-                        CurrentLongDeg = Status["Longitude"]
-
-                        CurrentLatRad = math.radians(CurrentLatDeg)
-                        CurrentLongRad = math.radians(CurrentLongDeg)
-                        DstLatRad = math.radians(float(DstLat))
-                        DstLongRad = math.radians(float(DstLong))
-
-                        x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
-                        y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
-                        BearingRad = math.atan2(y, x)
-                        BearingDeg = math.degrees(BearingRad)
-                        Bearing = int((BearingDeg + 360) % 360)
-
-                        if CurrentHead < Bearing:
-                            CurrentHead += 360  # denormalize ...
-                        DirectionRaw = CurrentHead - Bearing   # Calculate left turn, will allways be 0..359
-                        Direction = DirectionRaw
-                        print("DirectionRaw: " + str(DirectionRaw) + "°")
-                        # take the smallest turn
-                        if Direction <= 1 or Direction >= 359:
-                            print("Going Forward")
-                            LeftArrow = ""
-                            RightArrow = ""
-                            if Direction > 180:
-                                Direction = 360 - Direction
-                        elif Direction < 180:
-                            # Turn left : Direction degrees
-                            print("Going Left")
-                            LeftArrow = "<"
-                            if Direction >= 30:
-                                LeftArrow = "<<"
-                            if Direction >= 90:
-                                LeftArrow = "<<<"
-                        elif Direction > 180:
-                            # Turn right : 360-Direction degrees
-                            print("Going Right")
-                            Direction = 360 - Direction
-                            RightArrow = ">"
-                            if Direction >= 30:
-                                RightArrow = ">>"
-                            if Direction >= 90:
-                                RightArrow = ">>>"
-                        else:
-                            print("Going Backwards")
-                            LeftArrow = "<<<"
-                            RightArrow = ">>>"
-
-                        #Setting 3D position of the beep source
-                        PingPosX = math.sin(math.radians(-DirectionRaw))*50
-                        PingPosZ = math.cos(math.radians(-DirectionRaw))*50
-                        PingPitch = 1.0 - (Direction / 360)
-
-                        print("PingPosX:" + str(PingPosX))
-                        print("PingPosZ:" + str(PingPosZ))
-                        print("PingPitch:" + str(PingPitch))
-
-                        AlertMargin = 45
-                        if AlertMargin < Direction:
-                            DirectionOverMargin = True
-                            print("Over 45º")
-                        else:
-                            DirectionOverMargin = False
-                            print("Not over 45º")
-
-                        print("DirectionA: " + str(Direction) + "°")
-                        print("Bearing: " + str(Bearing) + "°")
-                        print(LeftArrow + RightArrow)
-                        InfoHudLevel = 1
-
-                        #Calculate distance and angle of descent
-                        if BodyRadius > 0:
-                            #Distance
-                            DifLat = math.radians(DstLat - CurrentLatDeg)
-                            DifLong = math.radians(DstLong - CurrentLongDeg)
-
-                            Dis1 = math.sin(DifLat / 2)**2 + math.cos(CurrentLatRad) * math.cos(DstLatRad) * math.sin(DifLong / 2)**2
-                            Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
-                            Distance_meters = int(BodyRadius * Dis2)
-
-                            InfoHudLevel = 2
-                            if Distance_meters >= 100000:
-                                Distance = int(Distance_meters / 1000)
-                                DisScale = "km"
-                            else:
-                                Distance = Distance_meters
-                                DisScale = "m"
-                            Distance = format(Distance, ",d")
-                            DestDistance.set(str(Distance)+" "+DisScale)
-
-                            try:
-                                if (Distance_meters + CurrentAlt < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
-                                    AudioFeedBack.DestinationReached()
-                            except:
-                                print("E.Shutting when destination is reached")
-
-                            DestHeading.set(str(Bearing) + "°")
-
-                            #Angle of descent
-                            DescentAngle = - int(round(math.degrees(math.atan(CurrentAlt/Distance_meters)),0))
-
-                            if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV == 0 and CurrentAlt > 2500:
-                                DestHeadingD.set(str(DescentAngle) + "°")
-                                DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                                DestHeadingD_Lab.config(foreground="orange")
-                                if DescentAngle <= -60 or DescentAngle > -5 :
-                                    DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                                    DestHeadingD_Lab.config(foreground="red")
-                            else:
-                                DestHeadingD.set("")
-                        else:
-                            DestHeading.set(str(Bearing) + "°")
-                            try:
-                                if (DstLat - CurrentLatDeg < 0.01 and DstLong - CurrentLongDeg < 0.01):
-                                    AudioFeedBack.DestinationReached()
-                            except:
-                                print("E.Shutting when destination is reached")
-
-                        #Updating indicators
-                        DestHeadingL.set(LeftArrow)
-                        DestHeadingR.set(RightArrow)
-                        resize(root, InfoHudLevel)
-                    except Exception as e:
-                        print("E02: " + str(e))
-                        AddLogEntry(e)
-                    print("_" * 20)
-            except Exception as e:
-                print("E03: " + str(e))
-                AddLogEntry(e)
-                print("Error on calculation")
-        except Exception as e:
-            print("E01: " + str(e))
-            AddLogEntry(e)
-            print("No Destination coords")
-            DestHeadingD.set("")
-            DestHeading.set("")
-            DestHeadingL.set("")
-            DestHeadingR.set("")
-            InfoHudLevel = 0
-            resize(root, InfoHudLevel)
+        x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
+        y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
+        BearingRad = math.atan2(y, x)
+        BearingDeg = math.degrees(BearingRad)
+        Bearing = int((BearingDeg + 360) % 360)
+        DestHeading.set(str(Bearing) + "°")
+        InfoHudLevel = 1
+        resize(root, InfoHudLevel)
     except Exception as e:
-        print("E04: " + str(e))
-        AddLogEntry(e)
+        AddLogEntry("CalcHeading(): " + str(e))
 
+def CalcDArrows():
+    global Bearing
+    global CurrentHead
+    global PingPosX
+    global PingPosZ
+    global PingPitch
+    global DirectionOverMargin
+    global InfoHudLevel
+    try:
+        if CurrentHead < Bearing:
+            CurrentHead += 360  # denormalize ...
+        DirectionRaw = CurrentHead - Bearing   # Calculate left turn, will allways be 0..359
+        Direction = DirectionRaw
+        print("DirectionRaw: " + str(DirectionRaw) + "°")
+        LeftArrow = ""
+        RightArrow = ""
+        # take the smallest turn
+        if Direction <= 1 or Direction >= 359:
+            print("Going Forward")
+            if Direction > 180:
+                Direction = 360 - Direction
+        elif Direction < 180:
+            # Turn left : Direction degrees
+            print("Going Left")
+            LeftArrow = "<"
+            if Direction >= 30:
+                LeftArrow = "<<"
+            if Direction >= 90:
+                LeftArrow = "<<<"
+        elif Direction > 180:
+            # Turn right : 360-Direction degrees
+            print("Going Right")
+            Direction = 360 - Direction
+            RightArrow = ">"
+            if Direction >= 30:
+                RightArrow = ">>"
+            if Direction >= 90:
+                RightArrow = ">>>"
+        else:
+            print("Going Backwards")
+            LeftArrow = "<<<"
+            RightArrow = ">>>"
+        DestHeadingL.set(LeftArrow)
+        DestHeadingR.set(RightArrow)
 
-#Declaring variables
-UsingConfigFile = False
-DebugMode = False
-SessionID = 0
-CurrentLat = 0.0
-CurrentLong = 0.0
-CurrentHead = 0
-CurrentAlt = 0
-PreviousBearing = 0
-offsetx = 0
-offsety = 0
-StarSystem = ""
-Body = ""
-BodyRadius = 0
-InfoHudLevel = 0
-PingPosX = 0
-sound_beep = "Beep.wav" #Default sound file
-PingDelay = 1500 #Default Ping delay
-data_dir = "."
-BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio0.png")))
-BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio1.png")))
-BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio2.png")))
-AudioMode = 0
+        #Setting 3D position of the beep source
+        PingPosX = math.sin(math.radians(-DirectionRaw))*50
+        PingPosZ = math.cos(math.radians(-DirectionRaw))*50
+        PingPitch = 1.0 - (Direction / 360)
 
-AudioFeedBack.Start()
+        print("PingPosX:" + str(PingPosX))
+        print("PingPosZ:" + str(PingPosZ))
+        print("PingPitch:" + str(PingPitch))
 
-#Asking Windows Registry for the Saved Folder and Appdata paths.
-try:
-    key = winreg.OpenKey(
-        winreg.HKEY_CURRENT_USER,
-        r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
-    )
-    JournalDir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
+        AlertMargin = 45
+        if AlertMargin < Direction:
+            DirectionOverMargin = True
+            print("Over 45º")
+        else:
+            DirectionOverMargin = False
+            print("Not over 45º")
 
-    eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
-    JournalFile = eliteJournalPath + "Status.json"
+    except Exception as e:
+        AddLogEntry("CalcDArrows(): " + str(e))
 
-    #watchdog
+def CalcDistance():
+    global BodyRadius
+    global CurrentLatDeg
+    global CurrentLongDeg
+    global DstLat
+    global DstLong
+    global CurrentAlt
+    global FlagSRV
+    global Distance_meters
+    global InfoHudLevel
+    try:
+        if BodyRadius > 0:
+            #Distance
+            DifLat = math.radians(DstLat - CurrentLatDeg)
+            DifLong = math.radians(DstLong - CurrentLongDeg)
+
+            Dis1 = math.sin(DifLat / 2)**2 + math.cos(math.radians(CurrentLatDeg)) * math.cos(math.radians(float(DstLat))) * math.sin(DifLong / 2)**2
+            Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
+            Distance_meters = int(BodyRadius * Dis2)
+
+            if Distance_meters >= 100000:
+                Distance = int(Distance_meters / 1000)
+                DisScale = "km"
+            else:
+                Distance = Distance_meters
+                DisScale = "m"
+            Distance = format(Distance, ",d")
+            DestDistance.set(str(Distance)+" "+DisScale)
+
+            InfoHudLevel = 2
+            resize(root, InfoHudLevel)
+
+            try:
+                if (Distance_meters + CurrentAlt < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
+                    AudioFeedBack.DestinationReached()
+            except:
+                print("E.Shutting when destination is reached")
+            print("Distance in meters: " + str(Distance_meters))
+        else:
+            try:
+                if (DstLat - CurrentLatDeg < 0.01 and DstLong - CurrentLongDeg < 0.01):
+                    AudioFeedBack.DestinationReached()
+            except:
+                print("E.Shutting when destination is reached")
+    except Exception as e:
+        AddLogEntry("CalcDistance(): " + str(e))
+
+def CalcAngDesc(): #Angle of descent
+    global DescentAngle
+    global CurrentAlt
+    global Distance_meters
+    global FlagSRV
+    try:
+        DescentAngle = - int(math.degrees(math.atan(CurrentAlt/Distance_meters)))
+        print("Angle of Descent: " + str(DescentAngle))
+        if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV == 0 and CurrentAlt > 3000:
+            DestHeadingD.set(str(DescentAngle) + "°")
+            DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+            DestHeadingD_Lab.config(foreground="orange")
+            if DescentAngle <= -60 or DescentAngle > -5 :
+                DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                DestHeadingD_Lab.config(foreground="red")
+        else:
+            DestHeadingD.set("")
+    except Exception as e:
+        AddLogEntry("CalcAngDesc(): " + str(e))
+
+if __name__ == "__main__":
+    root = Tk()
+    style = ttk.Style()
+
+    DebugMode = True    #Temporary variables for testing
+
+    GetShellFolders()
+    GetCLArguments()
+
+    #Temporary variables for testing
+    EDPBLock = EDPBAppdata + "Session.lock"
+    EDPBConfigFile = EDPBAppdata + "Config.json"
+    InfoHudLevel = 0
+    AudioMode = 0
+    data_dir = 'GFX'
+    BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio0.png")))
+    BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio1.png")))
+    BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio2.png")))
+
     event_handler = JournalUpdate()
     observer = Observer()
     observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
     observer.start()
-except:
-    print("E.Getting Journal Path")
-    AddLogEntry("Getting Journal Path")
-try:
-    LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
-    EDPBAppdata = LAppdatDdir + "\\EDPlanetBearing"
-    EDPBLock = EDPBAppdata + "\\Session.lock"
-    EDPBConfigFile = EDPBAppdata + "\\Config.json"
-    if not os.path.exists(os.path.dirname(EDPBConfigFile)):
-        try:
-            os.makedirs(os.path.dirname(EDPBConfigFile))
-        except OSError as exc: # Guard against race condition
-            AddLogEntry(exc)
-            if exc.errno != errno.EEXIST:
-                raise
-except:
-    print("E.Getting Appdata Path")
-    AddLogEntry("Getting Appdata Path")
 
-style.theme_create("EDBearing", parent="clam", settings=None)
+    AudioFeedBack.Start()
 
-style.theme_settings("EDBearing", {
-    "TFrame": {
-        "map": {
-            "background":       [("active", "black"),
-                                ("!disabled", "black")],
-            "fieldbackground":  [("!disabled", "black")],
-            "foreground":       [("focus", "black"),
-                                ("!disabled", "black")]
-            }
-    },
-    "TLabel": {
-        "map": {
-            "background":       [("active", "black"),
-                                ("!disabled", "black")],
-            "fieldbackground":  [("!disabled", "black")],
-            "foreground":       [("focus", "orange"),
-                                ("!disabled", "orange")]
-        }
-    },
-    "TEntry": {
-        "configure":            {"insertbackground": "orange"},
-        "map": {
-            "fieldbackground":  [("focus", "white"),
-                                ("disabled", "black"),
-                                ("!disabled", "black")],
-            "foreground":       [("focus", "black"),
-                                ("disabled", "orange"),
-                                ("!disabled", "orange")]
-        }
-    },
-    "TButton": {
-        "map": {
-            "background":       [("active", "black"),
-                                ("!disabled", "black")],
-            "foreground":       [("focus", "orange"),
-                                ("!disabled", "orange")]
-        }
-    },
-    "TCheckbutton": {
-        "map": {
-            "background":       [("active", "black"),
-                                ("disabled", "black"),
-                                ("!disabled", "black")],
-            "foreground":       [("focus", "orange"),
-                                ("disabled", "orange"),
-                                ("!disabled", "orange")]
-        }
-    }
-})
+    CreateGUI(root)
 
-DestinationCoords = StringVar()
-DestHeading = StringVar()
-DestHeadingD = StringVar()
-DestHeadingR = StringVar()
-DestHeadingL = StringVar()
-DestDistance = StringVar()
-
-style.theme_use("EDBearing")
-root.title("EDPlanetBearing")
-
-mainframe = ttk.Frame(root, padding="3 3 12 12")
-mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
-mainframe.columnconfigure(0, weight=1)
-mainframe.rowconfigure(0, weight=1)
-
-mainframe.bind("<ButtonPress-1>",clickwin)
-mainframe.bind("<B1-Motion>",dragwin)
-
-coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
-coords_entry.grid(column=2, columnspan=8, row=1, sticky=(W, E))
-coords_entry.focus()
-coords_entry.bind("<Return>", Calculate)
-
-ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=5, columnspan=6, row=2, sticky=(W, E))
-ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
-ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=9, columnspan=2, row=2, sticky=(W))
-
-DestHeadingD_Lab = ttk.Label(mainframe, textvariable=DestHeadingD, justify=RIGHT, font=("Helvetica", 10))
-DestHeadingD_Lab.grid(column=8, columnspan=4, row=3, sticky=(E))
-
-DestDistance_Lab = ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 9))
-DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
-
-CloseB = ttk.Button(mainframe, text=" X ", command=callback)
-CloseB.grid(column=10, row=1, sticky=(E))
-
-PingCB = ttk.Button(mainframe, image=BMPingAudio0, command=AudioFeedBack.PingCycleMode)
-PingCB.grid(column=1, row=1, sticky=(E))
-
-resize(root, InfoHudLevel, True)
-
-for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
-
-#Get Arguments and automatically set destination
-def getopts(argv):
-    opts = {}  # Empty dictionary to store key-value pairs.
-    while argv:  # While there are arguments left to parse...
-        try:
-            if argv[0][0] == "+":  # Found a "-name value" pair.
-                opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
-        except:
-            pass
-        argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
-    return opts
-try:
-    myargs = getopts(argv)
-    if "+debug" in argv:
-        DebugMode = True
-    if "+close" in argv:
-        root.after(0,callback)
-    if "+lat" in myargs and "+long" in myargs:
-        ArgLat = myargs["+lat"]
-        ArgLong = myargs["+long"]
-        DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
-        root.after(250,FocusElite)
-        try:
-            os.remove(EDPBConfigFile)
-        except Exception as e:
-            print("E.Deleting config file: " + str(e))
-            AddLogEntry(e)
-    if "+audio" in myargs:
-        AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
-except Exception as e:
-    print (e)
-    AddLogEntry(e)
-
-#Add Tooltips
-CloseB_ttp = CreateToolTip(CloseB, "Close")
-coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
-PingCB_ttp = CreateToolTip(PingCB, \
-"Audio Feedback\n"
-"Red = No audio\n"
-"Yellow = Only when deviation greater than 45°\n"
-"Green = All the time")
-
-root.after(PingDelay,AudioFeedBack.PingLoop)
-root.after(100, GetConfigFromFile, True)
-root.after(100, SingleInstance,True)
-
-root.protocol("WM_DELETE_WINDOW", callback)
-root.attributes("-topmost", True)
-root.overrideredirect(True)
-root.mainloop()
+    root.after(2500,AudioFeedBack.PingLoop)
+    root.after(100, GetConfigFromFile, True)
+    root.after(100, SingleInstance,True)
+    root.mainloop()
