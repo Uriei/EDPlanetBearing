@@ -504,7 +504,7 @@ class AudioFeedBack:
             global PingPosZ
             global PingPitch
             sound_beep = "beep.wav" #Default sound file
-            PingDelay = 1000
+            PingDelay = 1500
             PingPosX = 0.0
             PingPosZ = 0.0
             PingPitch = 1.0
