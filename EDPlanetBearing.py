@@ -277,12 +277,12 @@ class ReadJournalFile:
             FlagNoCoords = 2097152 - (StatusFlags & (1<<21)) # If coordinates are not available
             NoRun = FlagDocked+FlagLanded+FlagNoCoords
 
-            print("Flags:" + str(StatusFlags))
-            print("FlagDocked:" + str(FlagDocked))
-            print("FlagLanded:" + str(FlagLanded))
-            print("FlagNoCoords:" + str(FlagNoCoords))
-            print("FlagSRV:" + str(FlagSRV))
-            print("NoRun:" + str(NoRun))
+            print("Flags: " + str(StatusFlags))
+            print("FlagDocked: " + str(FlagDocked))
+            print("FlagLanded: " + str(FlagLanded))
+            print("FlagNoCoords: " + str(FlagNoCoords))
+            print("FlagSRV: " + str(FlagSRV))
+            print("NoRun: " + str(NoRun))
 
             CurrentLatDeg = round(Status["Latitude"],4)
             CurrentLongDeg = round(Status["Longitude"],4)
@@ -293,7 +293,7 @@ class ReadJournalFile:
             print("Current Heading: " + str(CurrentHead))
             print("Current Altitude: " + str(CurrentAlt))
         except Exception as e:
-            print("Couldn't read Status.json file:" + str(e))
+            print("Couldn't read Status.json file: " + str(e))
             AddLogEntry(e)
 
     def Journal():
@@ -518,7 +518,7 @@ class AudioFeedBack:
             sink.play(source)
             print("Audio system started")
         except Exception as e:
-            print("E.Starting Audio:" + str(e))
+            print("E.Starting Audio: " + str(e))
             AddLogEntry(e)
     def PingLoop():
         global PingDelay
@@ -540,7 +540,7 @@ class AudioFeedBack:
                     sink.update()
                     print("Ping at: " + str(source.position))
         except Exception as e:
-            print("E.Playing Audio(Loop):" + str(e))
+            print("E.Playing Audio(Loop): " + str(e))
             AddLogEntry(e)
         finally:
             root.after(PingDelay,AudioFeedBack.PingLoop)
@@ -571,7 +571,7 @@ class AudioFeedBack:
                     print("Triple Ping at: " + str(source.position))
                     sink.update()
         except Exception as e:
-            print("E.Playing Audio(Reached):" + str(e))
+            print("E.Playing Audio(Reached): " + str(e))
             AddLogEntry(e)
         finally:
             if UsingConfigFile:
@@ -717,13 +717,13 @@ def Calculate(event="None"):
     if NoRun != 0:
         print("Coords irrelevant")
         InfoHudLevel = 0
-        resize(root, InfoHudLevel)
     else:
         print("Coords relevant")
         CalcHeading()
         CalcDArrows()
         CalcDistance()
         CalcAngDesc()
+    resize(root, InfoHudLevel)
 
 def CalcHeading():
     global CurrentLatDeg
@@ -745,7 +745,6 @@ def CalcHeading():
         Bearing = int((BearingDeg + 360) % 360)
         DestHeading.set(str(Bearing) + "°")
         InfoHudLevel = 1
-        resize(root, InfoHudLevel)
     except Exception as e:
         AddLogEntry("CalcHeading(): " + str(e))
 
@@ -799,9 +798,9 @@ def CalcDArrows():
         PingPosZ = math.cos(math.radians(-DirectionRaw))*50
         PingPitch = 1.0 - (Direction / 360)
 
-        print("PingPosX:" + str(PingPosX))
-        print("PingPosZ:" + str(PingPosZ))
-        print("PingPitch:" + str(PingPitch))
+        print("PingPosX: " + str(PingPosX))
+        print("PingPosZ: " + str(PingPosZ))
+        print("PingPitch: " + str(PingPitch))
 
         AlertMargin = 45
         if AlertMargin < Direction:
@@ -832,7 +831,8 @@ def CalcDistance():
 
             Dis1 = math.sin(DifLat / 2)**2 + math.cos(math.radians(CurrentLatDeg)) * math.cos(math.radians(float(DstLat))) * math.sin(DifLong / 2)**2
             Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
-            Distance_meters = int(BodyRadius * Dis2)
+            Distance_Surface = int(BodyRadius * Dis2)
+            Distance_meters = int(sqrt(Distance_Surface**2 + CurrentAlt**2))
 
             if Distance_meters >= 100000:
                 Distance = int(Distance_meters / 1000)
@@ -844,10 +844,9 @@ def CalcDistance():
             DestDistance.set(str(Distance)+" "+DisScale)
 
             InfoHudLevel = 2
-            resize(root, InfoHudLevel)
 
             try:
-                if (Distance_meters + CurrentAlt < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
+                if (Distance_meters < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
                     AudioFeedBack.DestinationReached()
             except:
                 print("E.Shutting when destination is reached")
