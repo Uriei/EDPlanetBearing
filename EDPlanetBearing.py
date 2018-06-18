@@ -6,6 +6,7 @@ from sys import argv, exit
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import urlopen
+from urllib.parse import quote as urlquote
 from openal.audio import SoundSink, SoundSource
 from openal.loaders import load_wav_file
 
@@ -325,7 +326,7 @@ class ReadJournalFile:
                     for JEntry in JContent:
                         JEvent = json.loads(JEntry)
                         if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
-                            if Body == JEvent["Body"]:
+                            if Body.upper() == JEvent["Body"].upper():
                                 raise Exception("SameBody")
                             else:
                                 StarSystem = JEvent["StarSystem"]
@@ -335,12 +336,12 @@ class ReadJournalFile:
             try:
                 if StarSystem != "Not set" and Body != "Not set":
                     BodyRadius = 0
-                    EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName=" + StarSystem).read()
+                    EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName={}".format(urlquote(StarSystem))).read()
                     print("Extracted data from " + StarSystem)
                     EDSMSystem = json.loads(EDSMraw)
                     EDSMBodies = EDSMSystem["bodies"]
                     for BodyNameRaw in EDSMBodies:
-                        if BodyNameRaw["name"] == Body:
+                        if BodyNameRaw["name"].upper() == Body.upper():
                             BodyRadius = BodyNameRaw["radius"] * 1000
                             print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
                             break
@@ -723,6 +724,7 @@ def Calculate(event="None"):
         CalcDArrows()
         CalcDistance()
         CalcAngDesc()
+    print("HUD level: " + str(InfoHudLevel))
     resize(root, InfoHudLevel)
 
 def CalcHeading():
@@ -823,6 +825,7 @@ def CalcDistance():
     global FlagSRV
     global Distance_meters
     global InfoHudLevel
+    print("Starting Distance Calculation")
     try:
         if BodyRadius > 0:
             #Distance
@@ -832,7 +835,7 @@ def CalcDistance():
             Dis1 = math.sin(DifLat / 2)**2 + math.cos(math.radians(CurrentLatDeg)) * math.cos(math.radians(float(DstLat))) * math.sin(DifLong / 2)**2
             Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
             Distance_Surface = int(BodyRadius * Dis2)
-            Distance_meters = int(sqrt(Distance_Surface**2 + CurrentAlt**2))
+            Distance_meters = int(math.sqrt(Distance_Surface**2 + CurrentAlt**2))
 
             if Distance_meters >= 100000:
                 Distance = int(Distance_meters / 1000)
@@ -884,7 +887,7 @@ if __name__ == "__main__":
     root = Tk()
     style = ttk.Style()
 
-    DebugMode = True    #Temporary variables for testing
+    DebugMode = False    #Temporary variables for testing
 
     GetShellFolders()
     GetCLArguments()
