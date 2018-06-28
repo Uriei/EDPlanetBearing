@@ -473,6 +473,15 @@ def CreateGUI(root):
     root.attributes("-topmost", True)
     root.overrideredirect(True)
 
+    #Add Tooltips
+    CloseB_ttp = CreateToolTip(CloseB, "Close")
+    coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
+    PingCB_ttp = CreateToolTip(PingCB, \
+    "Audio Feedback\n"
+    "Red = No audio\n"
+    "Yellow = Only when deviation greater than 45°\n"
+    "Green = All the time")
+
 def GetShellFolders():
     global eliteJournalPath
     global EDPBAppdata
@@ -596,6 +605,7 @@ class AudioFeedBack:
             AddLogEntry(e)
 
 def GetCLArguments(argv=argv):
+    global DestinationCoords
     try:
         myargs = getopts(argv)
         if "+debug" in argv:
@@ -621,74 +631,81 @@ def GetConfigFromFile(Startup=False): #Gets config from config file if exists an
     global InfoHudLevel
     global UsingConfigFile
     global EDPBConfigContentPrevious
+    global DestinationCoords
     try:
         EDPBConfigContentPrevious
     except:
         EDPBConfigContentPrevious = ''
-
-    if os.path.exists(EDPBConfigFile):
-        try:
-            with open(EDPBConfigFile) as f:
-                EDPBConfigContent = f.read().lower()
-            if EDPBConfigContentPrevious == EDPBConfigContent:
-                raise Exception('SameConfig')
-            if "close" in EDPBConfigContent:
-                callback()
-            Configs = json.loads(EDPBConfigContent)
+    try:
+        if os.path.exists(EDPBConfigFile):
             try:
-                DstLat = float(Configs["lat"])
-                DstLong = float(Configs["long"])
-            except:
-                print("E.Couldn't load coords from existing config file.")
-                AddLogEntry("E.Couldn't load coords from existing config file.")
-                InfoHudLevel = 0
-                resize(root, InfoHudLevel)
-                DestinationCoords.set("")
-                AudioFeedBack.PingCycleMode(0)
-                root.after(500, Calculate)
+                with open(EDPBConfigFile) as f:
+                    EDPBConfigContent = f.read().lower()
+                if EDPBConfigContentPrevious == EDPBConfigContent:
+                    raise Exception('SameConfig')
+                if "close" in EDPBConfigContent:
+                    callback()
+                Configs = json.loads(EDPBConfigContent)
                 try:
-                    os.remove(EDPBConfigFile)
+                    DstLat = float(Configs["lat"])
+                    DstLong = float(Configs["long"])
                 except:
-                    print("E.Deleting empty config file")
-                    AddLogEntry("Deleting empty config file")
-                raise
+                    print("E.Couldn't load coords from existing config file.")
+                    AddLogEntry("E.Couldn't load coords from existing config file.")
+                    InfoHudLevel = 0
+                    resize(root, InfoHudLevel)
+                    DestinationCoords.set("")
+                    AudioFeedBack.PingCycleMode(0)
+                    root.after(500, Calculate)
+                    try:
+                        os.remove(EDPBConfigFile)
+                    except:
+                        print("E.Deleting empty config file")
+                        AddLogEntry("Deleting empty config file")
+                    raise
 
-            try:
-                AudioFeedBack.PingCycleMode(int(Configs["audio"]))
-                UsingConfigFile = True
-            except:
-                pass
-            if DstLat == -0:
-                DstLat = 0.0
+                try:
+                    AudioFeedBack.PingCycleMode(int(Configs["audio"]))
+                    UsingConfigFile = True
+                except:
+                    pass
+                if DstLat == -0:
+                    DstLat = 0.0
 
-            DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+                DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
 
-            EDPBConfigContentPrevious = EDPBConfigContent
+                EDPBConfigContentPrevious = EDPBConfigContent
 
-            if Startup:
-                root.after(100, FocusElite)
-                root.after(150, Calculate)
-            elif InfoHudLevel == 0:
-                root.after(0, Calculate)
-            #Disable GUI
-            if str(coords_entry["state"]) == "normal":
-                coords_entry["state"] = "disabled"
-                print("GUI Disabled")
-        except Exception as e:
-            if str(e) == 'SameConfig':
-                pass
-            else:
-                print("E.Reading Config file: " + str(e))
-                AddLogEntry(e)
-                if str(coords_entry["state"]) != "normal":
-                    coords_entry["state"] = "normal"
-                    print("GUI Enabled")
-            EDPBConfigContentPrevious = EDPBConfigContent
-    else:
-        if str(coords_entry["state"]) != "normal":
-            coords_entry["state"] = "normal"
-            EDPBConfigContentPrevious = ''
-            print("GUI Enabled")
+                if Startup:
+                    root.after(100, FocusElite)
+                    root.after(150, Calculate)
+                elif InfoHudLevel == 0:
+                    root.after(0, Calculate)
+                #Disable GUI
+                if str(coords_entry["state"]) == "normal":
+                    coords_entry["state"] = "disabled"
+                    print("GUI Disabled")
+            except Exception as e:
+                if str(e) == 'SameConfig':
+                    pass
+                else:
+                    print("E.Reading Config file: " + str(e))
+                    AddLogEntry(e)
+                    if str(coords_entry["state"]) != "normal":
+                        coords_entry["state"] = "normal"
+                        print("GUI Enabled")
+                EDPBConfigContentPrevious = EDPBConfigContent
+        else:
+            if str(coords_entry["state"]) != "normal":
+                coords_entry["state"] = "normal"
+                EDPBConfigContentPrevious = ''
+                print("GUI Enabled")
+    except:
+        coords_entry["state"] = "normal"
+        EDPBConfigContentPrevious = ''
+        print("GUI Enabled")
+        AddLogEntry(e)
+
     root.after(2000, GetConfigFromFile)
 
 def Calculate(event="None"):
@@ -890,7 +907,6 @@ if __name__ == "__main__":
     DebugMode = False    #Temporary variables for testing
 
     GetShellFolders()
-    GetCLArguments()
 
     #Temporary variables for testing
     EDPBLock = EDPBAppdata + "Session.lock"
@@ -910,6 +926,7 @@ if __name__ == "__main__":
     AudioFeedBack.Start()
 
     CreateGUI(root)
+    GetCLArguments()
 
     root.after(2500,AudioFeedBack.PingLoop)
     root.after(100, GetConfigFromFile, True)
