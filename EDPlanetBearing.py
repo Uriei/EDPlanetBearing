@@ -517,7 +517,7 @@ class AudioFeedBack:
             PingPosX = 0.0
             PingPosZ = 0.0
             PingPitch = 1.0
-            PingDelayMult = 1
+            PingDelayMult = 2
 
             sink = SoundSink()
             sink.activate()
@@ -549,6 +549,7 @@ class AudioFeedBack:
                     source.queue(data)
                     sink.update()
                     print("Ping at: " + str(source.position))
+                    source.bufferqueue = [] #Clear any residual queued sounds
         except Exception as e:
             print("E.Playing Audio(Loop): " + str(e))
             AddLogEntry(e)
@@ -565,6 +566,7 @@ class AudioFeedBack:
             global AudioMode
             global DirectionOverMargin
 
+            source.bufferqueue = [] #Clear any residual queued sounds
             PingPosX = 0.0
             PingPosZ = 0.0
             PingPitch = 1.5
@@ -572,7 +574,6 @@ class AudioFeedBack:
             if InfoHudLevel != 0:
                 if AudioMode  != 0:
                     AudioFeedBack.PingCycleMode(0)
-                    source.bufferqueue = [] #Clear any previously queued sound
                     sink.update()
                     source.position = [0.0, source.position[1], 0.0]
                     source.pitch = PingPitch
