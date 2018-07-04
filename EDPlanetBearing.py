@@ -515,7 +515,7 @@ class AudioFeedBack:
             global PingPitch
             global PingDelayMult
             sound_beep = "beep.wav" #Default sound file
-            PingDelay = 2000
+            PingDelay = 1000
             PingPosX = 0.0
             PingPosZ = 0.0
             PingPitch = 1.0
@@ -555,7 +555,8 @@ class AudioFeedBack:
             print("E.Playing Audio(Loop): " + str(e))
             AddLogEntry(e)
         finally:
-            root.after(PingDelay*PingDelayMult,AudioFeedBack.PingLoop)
+            print ("Ping Multiplier: " + str(PingDelayMult) + " - Distance: " + str(PingDelay*PingDelayMult))
+            root.after(int(PingDelay*PingDelayMult),AudioFeedBack.PingLoop)
     def DestinationReached():
         try:
             global PingPitch
@@ -873,11 +874,10 @@ def CalcDistance():
                 if FlagSRV == 0:
                     MinDistance = 2000
                     PingDelayMult = Distance_Surface / 8000
-
                 else:
-                    MinDistance = 250
-                    PingDelayMult = Distance_Surface / 1000
-                PingDelayMult = max(0.25,min(1,PingDelayMult))
+                    MinDistance = 100
+                    PingDelayMult = Distance_Surface / 600
+                PingDelayMult = max(0.5,min(2,PingDelayMult))
                 if (Distance_meters < MinDistance):
                     AudioFeedBack.DestinationReached()
             except:
