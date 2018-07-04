@@ -11,6 +11,9 @@ This is an app to calculate the heading you need to follow to reach an specific 
 *I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
 
 ***
+#### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/latest)
+
+***
 
 Quick video example of what it does (v0.5), the coordinates set are to a tip off I got.
 
