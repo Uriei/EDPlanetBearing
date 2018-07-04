@@ -513,11 +513,13 @@ class AudioFeedBack:
             global PingPosX
             global PingPosZ
             global PingPitch
+            global PingDelayMult
             sound_beep = "beep.wav" #Default sound file
-            PingDelay = 1500
+            PingDelay = 2000
             PingPosX = 0.0
             PingPosZ = 0.0
             PingPitch = 1.0
+            PingDelayMult = 1
 
             sink = SoundSink()
             sink.activate()
@@ -553,7 +555,7 @@ class AudioFeedBack:
             print("E.Playing Audio(Loop): " + str(e))
             AddLogEntry(e)
         finally:
-            root.after(PingDelay,AudioFeedBack.PingLoop)
+            root.after(PingDelay*PingDelayMult,AudioFeedBack.PingLoop)
     def DestinationReached():
         try:
             global PingPitch
@@ -842,6 +844,8 @@ def CalcDistance():
     global FlagSRV
     global Distance_meters
     global InfoHudLevel
+    global PingDelayMult
+    MinDistance = 100
     print("Starting Distance Calculation")
     try:
         if BodyRadius > 0:
@@ -866,7 +870,15 @@ def CalcDistance():
             InfoHudLevel = 2
 
             try:
-                if (Distance_meters < 2000 and FlagSRV == 0) or (Distance_meters < 250 and FlagSRV != 0):
+                if FlagSRV == 0:
+                    MinDistance = 2000
+                    PingDelayMult = Distance_Surface / 8000
+
+                else:
+                    MinDistance = 250
+                    PingDelayMult = Distance_Surface / 1000
+                PingDelayMult = max(0.25,min(1,PingDelayMult))
+                if (Distance_meters < MinDistance):
                     AudioFeedBack.DestinationReached()
             except:
                 print("E.Shutting when destination is reached")
