@@ -11,11 +11,11 @@ from openal.audio import SoundSink, SoundSource
 from openal.loaders import load_wav_file
 
 def AddLogEntry(LogEntry): #Adds an entry to the log file.
-    global EDPBAppdata
+    global EDPBFolder
     global DebugMode
     try:
         if DebugMode:
-            LogFile = EDPBAppdata + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
+            LogFile = EDPBFolder + "EDPB_log_" + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
             EntryLog = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(LogEntry)
             with open(LogFile,"a") as f:
                 f.write(EntryLog + "\n")
@@ -484,7 +484,6 @@ def CreateGUI(root):
 
 def GetShellFolders():
     global eliteJournalPath
-    global EDPBAppdata
     global StatusFile
     try:
         key = winreg.OpenKey(
@@ -495,7 +494,6 @@ def GetShellFolders():
 
         eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
         LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
-        EDPBAppdata = LAppdatDdir + "\\EDPlanetBearing\\"
         StatusFile = eliteJournalPath + "Status.json"
     except Exception as e:
         print("E.Getting Journal Path" + str(e))
@@ -919,10 +917,11 @@ if __name__ == "__main__":
     DebugMode = False    #Temporary variables for testing
 
     GetShellFolders()
+    global EDPBFolder
+    EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
-    #Temporary variables for testing
-    EDPBLock = EDPBAppdata + "Session.lock"
-    EDPBConfigFile = EDPBAppdata + "Config.json"
+    EDPBLock = EDPBFolder + "Session.lock"
+    EDPBConfigFile = EDPBFolder + "Config.json"
     InfoHudLevel = 0
     AudioMode = 0
     data_dir = 'GFX'
