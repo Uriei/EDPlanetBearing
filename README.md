@@ -11,6 +11,9 @@ This is an app to calculate the heading you need to follow to reach an specific 
 *I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
 
 ***
+#### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/latest)
+
+***
 
 Quick video example of what it does (v0.5), the coordinates set are to a tip off I got.
 
@@ -34,7 +37,7 @@ You can start the app with command line as:<br>
 ![alt text](https://i.imgur.com/syOllzI.png "Start") ![alt text](https://i.imgur.com/PG27nrZ.png "Close") 
 
 ### Using the config file:
-The app will create a folder in your Local Appdata folder ```%localappdata%/EDPlanetBearing``` inside this folder you can create a file called `Config.json` in which you can input the same info as in the command line way, but json formatted, this is:<br>
+Inside the app folder you can create a file called `Config.json` in which you can input the same info as in the command line way, but json formatted, this is:<br>
 ```{"lat":1.2345, "long":-98.7654, "audio":0}```
 
 I added these two different ways to automate it depending on the needs of each person and the software they use for it, your choice.
