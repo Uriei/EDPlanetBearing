@@ -919,7 +919,13 @@ if __name__ == "__main__":
 
     GetShellFolders()
     global EDPBFolder
-    EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
+
+    if getattr(sys, 'frozen', False):
+    # frozen
+        EDPBFolder = os.path.dirname(sys.executable)+"\\"
+    else:
+    # unfrozen
+        EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
     EDPBLock = EDPBFolder + "Session.lock"
     EDPBConfigFile = EDPBFolder + "Config.json"
