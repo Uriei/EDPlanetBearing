@@ -919,22 +919,16 @@ if __name__ == "__main__":
 
     GetShellFolders()
     global EDPBFolder
-
-    if getattr(sys, 'frozen', False):
-    # frozen
-        EDPBFolder = os.path.dirname(sys.executable)+"\\"
-    else:
-    # unfrozen
-        EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
+    EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
     EDPBLock = EDPBFolder + "Session.lock"
     EDPBConfigFile = EDPBFolder + "Config.json"
     InfoHudLevel = 0
     AudioMode = 0
-    data_dir = 'GFX'
-    BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio0.png")))
-    BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio1.png")))
-    BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(data_dir, "BMPingAudio2.png")))
+    gfx_dir = 'GFX'
+    BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio0.png")))
+    BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio1.png")))
+    BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio2.png")))
 
     event_handler = JournalUpdate()
     observer = Observer()
