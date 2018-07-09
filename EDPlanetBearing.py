@@ -75,9 +75,18 @@ def callback(ClearLock=True,ClearConfig=True): #Clean files and close the app.
         exit()
 
 def resource_path(relative):
-    if hasattr(sys, "_MEIPASS"):
-        return os.path.join(sys._MEIPASS, relative)
-    return os.path.join(relative)
+    try:
+        if os.path.exists(relative):
+            return os.path.join(relative)
+        elif hasattr(sys, "_MEIPASS"):
+            return os.path.join(sys._MEIPASS, relative)
+        else:
+            return os.path.join(relative)
+    except:
+        print("resource_path exist check fail")
+        if hasattr(sys, "_MEIPASS"):
+            return os.path.join(sys._MEIPASS, relative)
+        return os.path.join(relative)
 
 def SingleInstance(FirstRun=False):
     global EDPBLock
@@ -512,7 +521,7 @@ class AudioFeedBack:
             global PingPosZ
             global PingPitch
             global PingDelayMult
-            sound_beep = "beep.wav" #Default sound file
+            sound_beep = resource_path("beep.wav")
             PingDelay = 1000
             PingPosX = 0.0
             PingPosZ = 0.0
@@ -914,11 +923,11 @@ def CalcAngDesc(): #Angle of descent
 if __name__ == "__main__":
     root = Tk()
     style = ttk.Style()
+    global EDPBFolder
 
     DebugMode = False    #Temporary variables for testing
 
     GetShellFolders()
-    global EDPBFolder
     EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
     EDPBLock = EDPBFolder + "Session.lock"
