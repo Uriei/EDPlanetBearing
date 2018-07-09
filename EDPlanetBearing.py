@@ -1,3 +1,5 @@
+AppVer = "v2.5"
+
 import json, math, winreg, os, win32gui, re, random, datetime, time, errno
 from tkinter import *
 from tkinter import ttk
