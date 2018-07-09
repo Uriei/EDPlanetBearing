@@ -83,7 +83,7 @@ def resource_path(relative):
         else:
             return os.path.join(relative)
     except:
-        print("resource_path exist check fail")
+        AddLogEntry("Detecting extra files: "+str(e))
         if hasattr(sys, "_MEIPASS"):
             return os.path.join(sys._MEIPASS, relative)
         return os.path.join(relative)
@@ -925,6 +925,7 @@ if __name__ == "__main__":
     style = ttk.Style()
     global EDPBFolder
 
+    argv = argv.lower()
     DebugMode = False    #Temporary variables for testing
 
     GetShellFolders()
