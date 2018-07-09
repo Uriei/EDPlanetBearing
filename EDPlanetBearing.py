@@ -71,6 +71,7 @@ def callback(ClearLock=True,ClearConfig=True): #Clean files and close the app.
         root.destroy()
         exit()
     except Exception as e:
+        DebugMode = True
         AddLogEntry(e)
         exit()
 
@@ -101,6 +102,7 @@ def SingleInstance(FirstRun=False):
                 root.after(1000,SingleInstance)
             except Exception as e: # Guard against race condition
                 print("E.Creating SessionLock file: " + str(e))
+                DebugMode = True
                 AddLogEntry(e)
                 callback()
         elif not os.path.exists(EDPBLock):
@@ -117,11 +119,13 @@ def SingleInstance(FirstRun=False):
                     root.after(1000,SingleInstance)
             except Exception as e: # Guard against race condition
                 print("E.Checking Session Lock: " + str(e))
+                DebugMode = True
                 AddLogEntry(e)
                 callback(False)
 
     except Exception as e:
         print("E.Single Instancing: " + str(e))
+        DebugMode = True
         AddLogEntry(e)
 
 def getopts(argv):
@@ -618,6 +622,7 @@ class AudioFeedBack:
 def GetCLArguments(argv=argv):
     global DestinationCoords
     try:
+        argv = [element.lower() for element in argv]
         myargs = getopts(argv)
         if "+debug" in argv:
             global DebugMode
@@ -634,6 +639,7 @@ def GetCLArguments(argv=argv):
             AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
     except Exception as e:
         print (e)
+        DebugMode = True
         AddLogEntry(e)
 
 def GetConfigFromFile(Startup=False): #Gets config from config file if exists and applies it
@@ -921,36 +927,40 @@ def CalcAngDesc(): #Angle of descent
         AddLogEntry("CalcAngDesc(): " + str(e))
 
 if __name__ == "__main__":
-    root = Tk()
-    style = ttk.Style()
-    global EDPBFolder
+    try:
+        root = Tk()
+        style = ttk.Style()
+        global EDPBFolder
 
-    argv = argv.lower()
-    DebugMode = False    #Temporary variables for testing
+        DebugMode = False    #Temporary variables for testing
 
-    GetShellFolders()
-    EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
+        GetShellFolders()
+        EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
-    EDPBLock = EDPBFolder + "Session.lock"
-    EDPBConfigFile = EDPBFolder + "Config.json"
-    InfoHudLevel = 0
-    AudioMode = 0
-    gfx_dir = 'GFX'
-    BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio0.png")))
-    BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio1.png")))
-    BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio2.png")))
+        EDPBLock = EDPBFolder + "Session.lock"
+        EDPBConfigFile = EDPBFolder + "Config.json"
+        InfoHudLevel = 0
+        AudioMode = 0
+        gfx_dir = 'GFX'
+        BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio0.png")))
+        BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio1.png")))
+        BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio2.png")))
 
-    event_handler = JournalUpdate()
-    observer = Observer()
-    observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
-    observer.start()
+        event_handler = JournalUpdate()
+        observer = Observer()
+        observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
+        observer.start()
 
-    AudioFeedBack.Start()
+        AudioFeedBack.Start()
 
-    CreateGUI(root)
-    GetCLArguments()
+        CreateGUI(root)
+        GetCLArguments()
 
-    root.after(2500,AudioFeedBack.PingLoop)
-    root.after(100, GetConfigFromFile, True)
-    root.after(100, SingleInstance,True)
-    root.mainloop()
+        root.after(2500,AudioFeedBack.PingLoop)
+        root.after(100, GetConfigFromFile, True)
+        root.after(100, SingleInstance,True)
+        root.mainloop()
+    except Exception as e:
+        DebugMode = True
+        AddLogEntry(e)
+        callback()
