@@ -11,7 +11,9 @@ This is an app to calculate the heading you need to follow to reach an specific 
 *I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
 
 ***
-#### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/latest)
+#### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/)
+
+##### If the app crashes on startup and creates a log saying `could not find any library for OpenAL` or similar, you will need to install on your PC the OpenAl libraries from [HERE](https://www.openal.org/downloads/)
 
 ***
 
@@ -34,7 +36,7 @@ You can start the app with command line as:<br>
 - +long = Longitude (duh again!)
 - +audio = Audio mode you want to use, 0 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio0.png "No Audio Feedback") no audio, 1 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio1.png "Deviation alert only") only deviation alerts (over 45°), 2 for ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio2.png "Constant audio feedback") constant audio feedback.
 #### Example for VoiceAttack:
-![alt text](https://i.imgur.com/syOllzI.png "Start") ![alt text](https://i.imgur.com/PG27nrZ.png "Close") 
+![alt text](https://i.imgur.com/syOllzI.png "Start") ![alt text](https://i.imgur.com/PG27nrZ.png "Close")
 
 ### Using the config file:
 Inside the app folder you can create a file called `Config.json` in which you can input the same info as in the command line way, but json formatted, this is:<br>
@@ -45,5 +47,4 @@ In case of conflict, Command Line has preference.
 
 Also, for automation purposes, you can close the app in both ways, adding `+close` to the command line, or replacing all the content of the `Config.json` file with `close` no brackets, no nothing, just `close`.
 #### Example for VoiceAttack:
-![alt text](https://i.imgur.com/hKIZTNb.png "Start")  ![alt text](https://i.imgur.com/4TlHpXx.png "Close") 
-
+![alt text](https://i.imgur.com/hKIZTNb.png "Start")  ![alt text](https://i.imgur.com/4TlHpXx.png "Close")
