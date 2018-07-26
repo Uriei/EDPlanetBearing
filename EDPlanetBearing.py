@@ -275,6 +275,7 @@ class ReadJournalFile:
         global StatusFile
         global NoRun
         global FlagSRV
+        global FlagSC
         global CurrentLatDeg
         global CurrentLongDeg
         global CurrentHead
@@ -290,6 +291,7 @@ class ReadJournalFile:
             FlagDocked = StatusFlags & 1<<0 # If ship is docked
             FlagLanded = StatusFlags & 1<<1 # If ship is landed
             FlagSRV = StatusFlags & (1<<26) # If driving SRV
+            FlagSC = StatusFlags & (1<<16) # If in Supercruise
             FlagNoCoords = 2097152 - (StatusFlags & (1<<21)) # If coordinates are not available
             NoRun = FlagDocked+FlagLanded+FlagNoCoords
 
@@ -859,11 +861,13 @@ def CalcDistance():
     global DstLong
     global CurrentAlt
     global FlagSRV
+    global FlagSC
     global Distance_meters
     global InfoHudLevel
     global PingDelayMult
     MinDistance = 100
     print("Starting Distance Calculation")
+
     try:
         if BodyRadius > 0:
             #Distance
@@ -887,12 +891,15 @@ def CalcDistance():
             InfoHudLevel = 2
 
             try:
-                if FlagSRV == 0:
-                    MinDistance = 2000
-                    PingDelayMult = Distance_Surface / 8000
-                else:
+                if FlagSRV != 0:
                     MinDistance = 100
                     PingDelayMult = Distance_Surface / 600
+                elif FlagSC != 0:
+                    MinDistance = 1
+                    PingDelayMult = Distance_Surface / 200000
+                else:
+                    MinDistance = 2000
+                    PingDelayMult = Distance_Surface / 8000
                 PingDelayMult = max(0.5,min(2,PingDelayMult))
                 if (Distance_meters < MinDistance):
                     AudioFeedBack.DestinationReached()
@@ -901,6 +908,7 @@ def CalcDistance():
             print("Distance in meters: " + str(Distance_meters))
         else:
             try:
+                PingDelayMult = 2
                 if (DstLat - CurrentLatDeg < 0.01 and DstLong - CurrentLongDeg < 0.01):
                     AudioFeedBack.DestinationReached()
             except:
