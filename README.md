@@ -13,7 +13,7 @@ This is an app to calculate the heading you need to follow to reach an specific 
 ***
 #### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/)
 
-##### If the app crashes on startup and creates a log saying `could not find any library for OpenAL` or similar, you will need to install on your PC the OpenAl libraries from [HERE](https://www.openal.org/downloads/), download the ones named `OpenAL 1.1 Windows Installer (zip)`
+##### If the app crashes on startup and creates a log saying `could not find any library for OpenAL` or similar, you will need to install on your PC the OpenAl libraries from [HERE](https://www.openal.org/downloads/), download the one named `OpenAL 1.1 Windows Installer (zip)`
 
 ***
 
