@@ -1,4 +1,6 @@
-AppVer = "v2.6.1"
+AppVer = "v2.6.2"
+
+global NoOpenAl;NoOpenAl = False
 
 import os, datetime
 try:
@@ -11,8 +13,11 @@ try:
     from watchdog.events import FileSystemEventHandler
     from urllib.request import urlopen
     from urllib.parse import quote as urlquote
-    from openal.audio import SoundSink, SoundSource
-    from openal.loaders import load_wav_file
+    try:
+        from openal.audio import SoundSink, SoundSource
+        from openal.loaders import load_wav_file
+    except:
+        NoOpenAl = True
 
     def AddLogEntry(LogEntry): #Adds an entry to the log file.
         global EDPBFolder
@@ -495,11 +500,16 @@ try:
         #Add Tooltips
         CloseB_ttp = CreateToolTip(CloseB, "Close")
         coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
-        PingCB_ttp = CreateToolTip(PingCB, \
-        "Audio Feedback\n"
-        "Red = No audio\n"
-        "Yellow = Only when deviation greater than 45°\n"
-        "Green = All the time")
+        if NoOpenAl:
+            PingCB_ttp = CreateToolTip(PingCB, \
+            "OpenAl libraries not detected,\n"
+            "Audio disabled")
+        else:
+            PingCB_ttp = CreateToolTip(PingCB, \
+            "Audio Feedback\n"
+            "Red = No audio\n"
+            "Yellow = Only when deviation greater than 45°\n"
+            "Green = All the time")
 
     def GetShellFolders():
         global eliteJournalPath
@@ -514,69 +524,66 @@ try:
             eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
             LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
             StatusFile = eliteJournalPath + "Status.json"
+            os.path.exists(StatusFile)
         except Exception as e:
             print("E.Getting Journal Path" + str(e))
             AddLogEntry("Getting Journal Path" + str(e))
             root.after(0,callback)
 
-    class AudioFeedBack:
-        def Start():
-            #Prepare audio feedback
-            try:
-                global sink
-                global source
-                global data
+    if NoOpenAl:
+        class AudioFeedBack:
+            def Start():
                 global PingDelay
                 global PingPosX
                 global PingPosZ
                 global PingPitch
                 global PingDelayMult
-                sound_beep = resource_path("beep.wav")
                 PingDelay = 1000
                 PingPosX = 0.0
                 PingPosZ = 0.0
                 PingPitch = 1.0
                 PingDelayMult = 2
+            def PingLoop():
+                pass
+            def DestinationReached():
+                pass
+            def PingCycleMode(AudioModeSet = -1):
+                pass
+    else:
+        class AudioFeedBack:
+            def Start():
+                #Prepare audio feedback
+                try:
+                    global sink
+                    global source
+                    global data
+                    global PingDelay
+                    global PingPosX
+                    global PingPosZ
+                    global PingPitch
+                    global PingDelayMult
+                    sound_beep = resource_path("beep.wav")
+                    PingDelay = 1000
+                    PingPosX = 0.0
+                    PingPosZ = 0.0
+                    PingPitch = 1.0
+                    PingDelayMult = 2
 
-                sink = SoundSink()
-                sink.activate()
-                source = SoundSource(position=[PingPosX, 0, PingPosZ])
-                #source.looping = False
-                source.gain = 50.0
-                data = load_wav_file(sound_beep)
-                sink.play(source)
-                print("Audio system started")
-            except Exception as e:
-                print("E.Starting Audio: " + str(e))
-                AddLogEntry(e)
-        def PingLoop():
-            global PingDelay
-            global PingPosX
-            global PingPosZ
-            global PingPitch
-            global InfoHudLevel
-            global sink
-            global source
-            global data
-            global AudioMode
-            global DirectionOverMargin
-            try:
-                if InfoHudLevel != 0:
-                    if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
-                        source.position = [PingPosX, source.position[1], PingPosZ]
-                        source.pitch = PingPitch
-                        source.queue(data)
-                        sink.update()
-                        print("Ping at: " + str(source.position))
-                        source.bufferqueue = [] #Clear any residual queued sounds
-            except Exception as e:
-                print("E.Playing Audio(Loop): " + str(e))
-                AddLogEntry(e)
-            finally:
-                print ("Ping Multiplier: " + str(PingDelayMult) + " - Distance: " + str(PingDelay*PingDelayMult))
-                root.after(int(PingDelay*PingDelayMult),AudioFeedBack.PingLoop)
-        def DestinationReached():
-            try:
+                    sink = SoundSink()
+                    sink.activate()
+                    source = SoundSource(position=[PingPosX, 0, PingPosZ])
+                    #source.looping = False
+                    source.gain = 50.0
+                    data = load_wav_file(sound_beep)
+                    sink.play(source)
+                    print("Audio system started")
+                except Exception as e:
+                    print("E.Starting Audio: " + str(e))
+                    AddLogEntry(e)
+            def PingLoop():
+                global PingDelay
+                global PingPosX
+                global PingPosZ
                 global PingPitch
                 global InfoHudLevel
                 global sink
@@ -584,46 +591,70 @@ try:
                 global data
                 global AudioMode
                 global DirectionOverMargin
+                try:
+                    if InfoHudLevel != 0:
+                        if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
+                            source.position = [PingPosX, source.position[1], PingPosZ]
+                            source.pitch = PingPitch
+                            source.queue(data)
+                            sink.update()
+                            print("Ping at: " + str(source.position))
+                            source.bufferqueue = [] #Clear any residual queued sounds
+                except Exception as e:
+                    print("E.Playing Audio(Loop): " + str(e))
+                    AddLogEntry(e)
+                finally:
+                    print ("Ping Multiplier: " + str(PingDelayMult) + " - Distance: " + str(PingDelay*PingDelayMult))
+                    root.after(int(PingDelay*PingDelayMult),AudioFeedBack.PingLoop)
+            def DestinationReached():
+                try:
+                    global PingPitch
+                    global InfoHudLevel
+                    global sink
+                    global source
+                    global data
+                    global AudioMode
+                    global DirectionOverMargin
 
-                source.bufferqueue = [] #Clear any residual queued sounds
-                PingPosX = 0.0
-                PingPosZ = 0.0
-                PingPitch = 1.5
+                    source.bufferqueue = [] #Clear any residual queued sounds
+                    PingPosX = 0.0
+                    PingPosZ = 0.0
+                    PingPitch = 1.5
 
-                if InfoHudLevel != 0:
-                    if AudioMode  != 0:
-                        AudioFeedBack.PingCycleMode(0)
-                        sink.update()
-                        source.position = [0.0, source.position[1], 0.0]
-                        source.pitch = PingPitch
-                        source.queue(data)
-                        source.queue(data)
-                        source.queue(data)
-                        print("Triple Ping at: " + str(source.position))
-                        sink.update()
-            except Exception as e:
-                print("E.Playing Audio(Reached): " + str(e))
-                AddLogEntry(e)
-            finally:
-                if UsingConfigFile:
-                    root.after(0,callback)
+                    if InfoHudLevel != 0:
+                        if AudioMode  != 0:
+                            AudioFeedBack.PingCycleMode(0)
+                            sink.update()
+                            source.position = [0.0, source.position[1], 0.0]
+                            source.pitch = PingPitch
+                            source.queue(data)
+                            source.queue(data)
+                            source.queue(data)
+                            print("Triple Ping at: " + str(source.position))
+                            sink.update()
+                except Exception as e:
+                    print("E.Playing Audio(Reached): " + str(e))
+                    AddLogEntry(e)
+                finally:
+                    if UsingConfigFile:
+                        root.after(0,callback)
 
 
-        def PingCycleMode(AudioModeSet = -1):
-            global AudioMode
-            try:
-                if AudioModeSet != -1:
-                    AudioMode = AudioModeSet
-                elif AudioMode == 2:
-                    AudioMode = 0
-                else:
-                    AudioMode = AudioMode + 1
-                exec('PingCB["image"] = BMPingAudio' + str(AudioMode))
-                coords_entry.focus()
-                print("Audio Mode set to: " + str(AudioMode) + " - " + str(PingCB["image"]))
-            except Exception as e:
-                print("E.Setting Audio Feedback image: " + str(e))
-                AddLogEntry(e)
+            def PingCycleMode(AudioModeSet = -1):
+                global AudioMode
+                try:
+                    if AudioModeSet != -1:
+                        AudioMode = AudioModeSet
+                    elif AudioMode == 2:
+                        AudioMode = 0
+                    else:
+                        AudioMode = AudioMode + 1
+                    exec('PingCB["image"] = BMPingAudio' + str(AudioMode))
+                    coords_entry.focus()
+                    print("Audio Mode set to: " + str(AudioMode) + " - " + str(PingCB["image"]))
+                except Exception as e:
+                    print("E.Setting Audio Feedback image: " + str(e))
+                    AddLogEntry(e)
 
     def GetCLArguments(argv=argv):
         global DestinationCoords
