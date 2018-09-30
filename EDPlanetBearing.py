@@ -1,6 +1,6 @@
 AppVer = "v2.6.3"
 
-global NoOpenAl;NoOpenAl = False
+global no_open_al; no_open_al = False
 
 import datetime
 import os
@@ -16,66 +16,73 @@ try:
     from watchdog.events import FileSystemEventHandler
     from urllib.request import urlopen
     from urllib.parse import quote as urlquote
+
     try:
         from openal.audio import SoundSink, SoundSource
         from openal.loaders import load_wav_file
     except:
-        NoOpenAl = True
+        no_open_al = True
 
-    def AddLogEntry(LogEntry): #Adds an entry to the log file.
-        global EDPBFolder
-        global DebugMode
+
+    def addLogEntry(log_entry):  # Adds an entry to the log file.
+        global edpb_folder
+        global debug_mode
         try:
-            if DebugMode:
-                LogFile = EDPBFolder + "EDPB_log_" + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
-                EntryLog = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(LogEntry)
-                with open(LogFile,"a") as f:
-                    f.write(EntryLog + "\n")
-                print("Entry Log added: " + EntryLog)
+            if debug_mode:
+                log_file = edpb_folder + "EDPB_log_" + str(datetime.datetime.now().year) + "-" + str(
+                    datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
+                entry_log = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(
+                    datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(
+                    log_entry)
+                with open(log_file, "a") as f:
+                    f.write(entry_log + "\n")
+                print("Entry Log added: " + entry_log)
         except Exception as e:
             print("Log failed: " + str(e))
 
-    def ClearFiles(File="All"):
-        global EDPBConfigFile
-        global EDPBLock
+
+    def clearFiles(file="All"):
+        global edpb_config_file
+        global edpb_lock
         for x in range(0, 100):
             try:
                 try:
-                    if File == "SessionFile" or File == "All":
-                        os.remove(EDPBLock)
-                        print("Deleted: " + EDPBLock)
+                    if file == "SessionFile" or file == "All":
+                        os.remove(edpb_lock)
+                        print("Deleted: " + edpb_lock)
                 except OSError as e:
                     print(e)
-                    AddLogEntry(e)
+                    addLogEntry(e)
                     if e.errno != errno.ENOENT:
                         raise
                 try:
-                    if File == "ConfigFile" or File == "All":
-                        os.remove(EDPBConfigFile)
-                        print("Deleted: " + EDPBConfigFile)
+                    if file == "ConfigFile" or file == "All":
+                        os.remove(edpb_config_file)
+                        print("Deleted: " + edpb_config_file)
                 except OSError as e:
                     print(e)
-                    AddLogEntry(e)
+                    addLogEntry(e)
                     if e.errno != errno.ENOENT:
                         raise
                 print("Succesfully deleted files")
                 break
             except OSError as e:
-                AddLogEntry(e)
+                addLogEntry(e)
                 if e.errno != errno.ENOENT:
                     raise
             except:
                 print("E.Deleting files")
-                AddLogEntry("Deleting files")
+                addLogEntry("Deleting files")
                 time.sleep(0.01)
 
-    def callback(ClearLock=True,ClearConfig=True): #Clean files and close the app.
-        if ClearLock and ClearConfig:
-            ClearFiles("All")
-        elif ClearLock:
-            ClearFiles("SessionFile")
-        elif ClearConfig:
-            ClearFiles("ConfigFile")
+
+    def callback(clear_lock=True, clear_config=True):  # Clean files and close the app.
+        if clear_lock and clear_config:
+            clearFiles("All")
+        elif clear_lock:
+            clearFiles("SessionFile")
+        elif clear_config:
+            clearFiles("ConfigFile")
 
         try:
             observer.stop()
@@ -83,9 +90,10 @@ try:
             root.destroy()
             exit()
         except Exception as e:
-            DebugMode = True
-            AddLogEntry(e)
+            debug_mode = True
+            addLogEntry(e)
             exit()
+
 
     def resource_path(relative):
         try:
@@ -96,50 +104,52 @@ try:
             else:
                 return os.path.join(relative)
         except:
-            AddLogEntry("Detecting extra files: "+str(e))
+            addLogEntry("Detecting extra files: " + str(e))
             if hasattr(sys, "_MEIPASS"):
                 return os.path.join(sys._MEIPASS, relative)
             return os.path.join(relative)
 
-    def SingleInstance(FirstRun=False):
-        global EDPBLock
-        global SessionID
+
+    def singleInstance(first_run=False):
+        global edpb_lock
+        global session_id
         try:
-            if FirstRun:
+            if first_run:
                 try:
-                    SessionID = str(random.randrange(0, 1000000000))
-                    with open(EDPBLock,"w") as f:
-                        f.write(SessionID)
-                    print("Singleton: " + EDPBLock)
-                    print("Session ID: " + SessionID)
-                    root.after(1000,SingleInstance)
-                except Exception as e: # Guard against race condition
+                    session_id = str(random.randrange(0, 1000000000))
+                    with open(edpb_lock, "w") as f:
+                        f.write(session_id)
+                    print("Singleton: " + edpb_lock)
+                    print("Session ID: " + session_id)
+                    root.after(1000, singleInstance)
+                except Exception as e:  # Guard against race condition
                     print("E.Creating SessionLock file: " + str(e))
-                    DebugMode = True
-                    AddLogEntry(e)
+                    debug_mode = True
+                    addLogEntry(e)
                     callback()
-            elif not os.path.exists(EDPBLock):
+            elif not os.path.exists(edpb_lock):
                 print("SessionLock file missing, closing.")
                 callback()
             else:
                 try:
-                    with open(EDPBLock) as f:
-                        EDPBLockID = f.read()
-                    if EDPBLockID != SessionID:
+                    with open(edpb_lock) as f:
+                        edpb_lock_id = f.read()
+                    if edpb_lock_id != session_id:
                         print("New session ID detected, closing instance.")
-                        callback(False,False)
+                        callback(False, False)
                     else:
-                        root.after(1000,SingleInstance)
-                except Exception as e: # Guard against race condition
+                        root.after(1000, singleInstance)
+                except Exception as e:  # Guard against race condition
                     print("E.Checking Session Lock: " + str(e))
-                    DebugMode = True
-                    AddLogEntry(e)
+                    debug_mode = True
+                    addLogEntry(e)
                     callback(False)
 
         except Exception as e:
             print("E.Single Instancing: " + str(e))
-            DebugMode = True
-            AddLogEntry(e)
+            debug_mode = True
+            addLogEntry(e)
+
 
     def getopts(argv):
         opts = {}  # Empty dictionary to store key-value pairs.
@@ -152,10 +162,11 @@ try:
             argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
         return opts
 
+
     class WindowMgr:
         """Encapsulates some calls to the winapi for window management"""
 
-        def __init__ (self):
+        def __init__(self):
             """Constructor"""
             self._handle = None
 
@@ -177,7 +188,8 @@ try:
             """put the window in the foreground"""
             win32gui.SetForegroundWindow(self._handle)
 
-    def FocusElite():
+
+    def focusElite():
         try:
             w = WindowMgr()
             w.find_window("FrontierDevelopmentsAppWinClass")
@@ -185,36 +197,40 @@ try:
         except:
             pass
 
+
     def dragwin(event):
         x = mainframe.winfo_pointerx() - offsetx
         y = mainframe.winfo_pointery() - offsety
-        root.geometry("+{x}+{y}".format(x=x,y=y))
+        root.geometry("+{x}+{y}".format(x=x, y=y))
+
+
     def clickwin(event):
         global offsetx
         global offsety
         offsetx = event.x
         offsety = event.y
 
-    def resize(root, InfoHudLevel=0, StartingUp=False):
-        #Creating window parameters
-        w = 185 # width for the Tk root
-        #h = 40 # height for the Tk root
+
+    def resize(root, info_hud_level=0, starting_up=False):
+        # Creating window parameters
+        w = 185  # width for the Tk root
+        # h = 40 # height for the Tk root
         # get screen width and height
-        ws = root.winfo_screenwidth() # width of the screen
-        hs = root.winfo_screenheight() # height of the screen
-        if InfoHudLevel == 2:
+        ws = root.winfo_screenwidth()  # width of the screen
+        hs = root.winfo_screenheight()  # height of the screen
+        if info_hud_level == 2:
             h = 100
-        elif InfoHudLevel == 1:
+        elif info_hud_level == 1:
             h = 80
         else:
             h = 37
 
         try:
-            if StartingUp:
+            if starting_up:
                 # Calculate x and y coordinates for the Tk root window
-                x = (ws/2) - (w/2)
-                y = (hs/100)# - (h/2)
-                root.after(100, JournalUpdate.on_modified, JournalUpdate, "Startup")
+                x = (ws / 2) - (w / 2)
+                y = (hs / 100)  # - (h/2)
+                root.after(100, journalUpdate.on_modified, journalUpdate, "Startup")
             else:
                 x = root.winfo_rootx()
                 y = root.winfo_rooty()
@@ -224,16 +240,18 @@ try:
             root.geometry("%dx%d+%d+%d" % (w, h, x, y))
         except Exception as e:
             print("E05: " + str(e))
-            AddLogEntry(e)
+            addLogEntry(e)
             print("Error on resizing")
 
-    class CreateToolTip(object):
+
+    class createToolTip(object):
         """
         create a tooltip for a given widget
         """
+
         def __init__(self, widget, text="widget info"):
-            self.waittime = 500     #miliseconds
-            self.wraplength = 180   #pixels
+            self.waittime = 500  # miliseconds
+            self.wraplength = 180  # pixels
             self.widget = widget
             self.text = text
             self.widget.bind("<Enter>", self.enter)
@@ -270,192 +288,196 @@ try:
             self.tw.wm_overrideredirect(True)
             self.tw.wm_geometry("+%d+%d" % (x, y))
             label = tk.Label(self.tw, text=self.text, justify="left",
-                           background="#ffffff", relief="solid", borderwidth=1,
-                           wraplength = self.wraplength)
+                             background="#ffffff", relief="solid", borderwidth=1,
+                             wraplength=self.wraplength)
             label.pack(ipadx=1)
             self.tw.attributes("-topmost", True)
 
         def hidetip(self):
             tw = self.tw
-            self.tw= None
+            self.tw = None
             if tw:
                 tw.destroy()
 
-    class ReadJournalFile:
-        def Status():
-            global StatusFile
-            global NoRun
-            global FlagSRV
-            global FlagSC
-            global CurrentLatDeg
-            global CurrentLongDeg
-            global CurrentHead
-            global CurrentAlt
 
-            with open(StatusFile) as f:
-                JStatusContent = f.read()
+    class readJournalFile:
+        def status():
+            global status_file
+            global no_run
+            global flag_srv
+            global flag_sc
+            global current_lat_deg
+            global current_long_deg
+            global current_head
+            global current_alt
+
+            with open(status_file) as f:
+                j_status_content = f.read()
 
             try:
-                Status = json.loads(JStatusContent)
-                StatusFlags = Status["Flags"]
+                status = json.loads(j_status_content)
+                status_flags = status["Flags"]
 
-                FlagDocked = StatusFlags & 1<<0 # If ship is docked
-                FlagLanded = StatusFlags & 1<<1 # If ship is landed
-                FlagSRV = StatusFlags & (1<<26) # If driving SRV
-                FlagSC = StatusFlags & (1<<4) # If in Supercruise
-                FlagNoCoords = 2097152 - (StatusFlags & (1<<21)) # If coordinates are not available
-                NoRun = FlagDocked+FlagLanded+FlagNoCoords
+                flag_docked = status_flags & 1 << 0  # If ship is docked
+                flag_landed = status_flags & 1 << 1  # If ship is landed
+                flag_srv = status_flags & (1 << 26)  # If driving SRV
+                flag_sc = status_flags & (1 << 4)  # If in Supercruise
+                flag_no_coords = 2097152 - (status_flags & (1 << 21))  # If coordinates are not available
+                no_run = flag_docked + flag_landed + flag_no_coords
 
-                print("Flags: " + str(StatusFlags))
-                print("FlagDocked: " + str(FlagDocked))
-                print("FlagLanded: " + str(FlagLanded))
-                print("FlagNoCoords: " + str(FlagNoCoords))
-                print("FlagSRV: " + str(FlagSRV))
-                print("FlagSC: " + str(FlagSC))
-                print("NoRun: " + str(NoRun))
+                print("Flags: " + str(status_flags))
+                print("FlagDocked: " + str(flag_docked))
+                print("FlagLanded: " + str(flag_landed))
+                print("FlagNoCoords: " + str(flag_no_coords))
+                print("FlagSRV: " + str(flag_srv))
+                print("FlagSC: " + str(flag_sc))
+                print("NoRun: " + str(no_run))
 
-                CurrentLatDeg = round(Status["Latitude"],4)
-                CurrentLongDeg = round(Status["Longitude"],4)
-                CurrentHead = round(Status["Heading"],0)
-                CurrentAlt = round(Status["Altitude"],0)
-                print("Current Lat: " + str(CurrentLatDeg))
-                print("Current Long: " + str(CurrentLongDeg))
-                print("Current Heading: " + str(CurrentHead))
-                print("Current Altitude: " + str(CurrentAlt))
+                current_lat_deg = round(status["Latitude"], 4)
+                current_long_deg = round(status["Longitude"], 4)
+                current_head = round(status["Heading"], 0)
+                current_alt = round(status["Altitude"], 0)
+                print("Current Lat: " + str(current_lat_deg))
+                print("Current Long: " + str(current_long_deg))
+                print("Current Heading: " + str(current_head))
+                print("Current Altitude: " + str(current_alt))
             except Exception as e:
-                print("Couldn't read Status.json file: " + str(e))
-                AddLogEntry(e)
+                print("Couldn't read status.json file: " + str(e))
+                addLogEntry(e)
 
-        def Journal():
-            global eliteJournalPath
-            global Body
-            global StarSystem
-            global BodyRadius
-            JournalDone = False
+        def journal():
+            global elite_journal_path
+            global body
+            global star_system
+            global body_radius
+            journal_done = False
 
             try:
-                Body
+                body
             except:
-                Body = 'Not set'
+                body = 'Not set'
             try:
-                StarSystem
+                star_system
             except:
-                StarSystem = 'Not set'
+                star_system = 'Not set'
 
             try:
-                JournalList = reversed(os.listdir(eliteJournalPath))
-                for JournalItemFolder in JournalList:
-                    if JournalDone:
+                journal_list = reversed(os.listdir(elite_journal_path))
+                for journal_item_folder in journal_list:
+                    if journal_done:
                         break
-                    if "Journal." in JournalItemFolder:
-                        print("Reading Journal: " + JournalItemFolder)
-                        JournalItemFile = eliteJournalPath + JournalItemFolder
-                        with open(JournalItemFile) as f:
-                            JContent = reversed(f.readlines())
-                        for JEntry in JContent:
-                            JEvent = json.loads(JEntry)
-                            if "ApproachBody" == JEvent["event"] or "Location" == JEvent["event"]:
-                                if Body.upper() == JEvent["Body"].upper():
+                    if "Journal." in journal_item_folder:
+                        print("Reading Journal: " + journal_item_folder)
+                        journal_item_file = elite_journal_path + journal_item_folder
+                        with open(journal_item_file) as f:
+                            j_content = reversed(f.readlines())
+                        for j_entry in j_content:
+                            j_event = json.loads(j_entry)
+                            if "ApproachBody" == j_event["event"] or "Location" == j_event["event"]:
+                                if body.upper() == j_event["Body"].upper():
                                     raise Exception("SameBody")
                                 else:
-                                    StarSystem = JEvent["StarSystem"]
-                                    Body = JEvent["Body"]
-                                    JournalDone = True
+                                    star_system = j_event["StarSystem"]
+                                    body = j_event["Body"]
+                                    journal_done = True
                                     break
                 try:
-                    if StarSystem != "Not set" and Body != "Not set":
-                        BodyRadius = 0
-                        EDSMraw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName={}".format(urlquote(StarSystem))).read()
-                        print("Extracted data from " + StarSystem)
-                        EDSMSystem = json.loads(EDSMraw)
-                        EDSMBodies = EDSMSystem["bodies"]
-                        for BodyNameRaw in EDSMBodies:
-                            if BodyNameRaw["name"].upper() == Body.upper():
-                                BodyRadius = BodyNameRaw["radius"] * 1000
-                                print("Radius of "+Body+" is: "+str(BodyRadius)+" meters")
+                    if star_system != "Not set" and body != "Not set":
+                        body_radius = 0
+                        edsm_raw = urlopen("https://www.edsm.net/api-system-v1/bodies?systemName={}".format(
+                            urlquote(star_system))).read()
+                        print("Extracted data from " + star_system)
+                        edsm_system = json.loads(edsm_raw)
+                        edsm_bodies = edsm_system["bodies"]
+                        for body_name_raw in edsm_bodies:
+                            if body_name_raw["name"].upper() == body.upper():
+                                body_radius = body_name_raw["radius"] * 1000
+                                print("Radius of " + body + " is: " + str(body_radius) + " meters")
                                 break
                 except Exception as e:
-                    print("E.EDSM: "+str(e))
-                    AddLogEntry(e)
+                    print("E.EDSM: " + str(e))
+                    addLogEntry(e)
             except Exception as e:
                 if str(e) == 'SameBody':
                     print("Same body, preventing extra polls to EDSM")
                 else:
                     print("Failed Journal reading.")
-                    AddLogEntry(e)
+                    addLogEntry(e)
 
-    class JournalUpdate(FileSystemEventHandler):
+
+    class journalUpdate(FileSystemEventHandler):
         def on_modified(self, event):
-            ReadJournalFile.Journal()
-            ReadJournalFile.Status()
-            Calculate()
+            readJournalFile.journal()
+            readJournalFile.status()
+            calculate()
 
-    def CreateGUI(root):
+
+    def create_gui(root):
         style.theme_create("EDBearing", parent="clam", settings=None)
 
         style.theme_settings("EDBearing", {
             "TFrame": {
                 "map": {
-                    "background":       [("active", "black"),
-                                        ("!disabled", "black")],
-                    "fieldbackground":  [("!disabled", "black")],
-                    "foreground":       [("focus", "black"),
-                                        ("!disabled", "black")]
-                    }
+                    "background": [("active", "black"),
+                                   ("!disabled", "black")],
+                    "fieldbackground": [("!disabled", "black")],
+                    "foreground": [("focus", "black"),
+                                   ("!disabled", "black")]
+                }
             },
             "TLabel": {
                 "map": {
-                    "background":       [("active", "black"),
-                                        ("!disabled", "black")],
-                    "fieldbackground":  [("!disabled", "black")],
-                    "foreground":       [("focus", "orange"),
-                                        ("!disabled", "orange")]
+                    "background": [("active", "black"),
+                                   ("!disabled", "black")],
+                    "fieldbackground": [("!disabled", "black")],
+                    "foreground": [("focus", "orange"),
+                                   ("!disabled", "orange")]
                 }
             },
             "TEntry": {
-                "configure":            {"insertbackground": "orange"},
+                "configure": {"insertbackground": "orange"},
                 "map": {
-                    "fieldbackground":  [("focus", "white"),
+                    "fieldbackground": [("focus", "white"),
                                         ("disabled", "black"),
                                         ("!disabled", "black")],
-                    "foreground":       [("focus", "black"),
-                                        ("disabled", "orange"),
-                                        ("!disabled", "orange")]
+                    "foreground": [("focus", "black"),
+                                   ("disabled", "orange"),
+                                   ("!disabled", "orange")]
                 }
             },
             "TButton": {
                 "map": {
-                    "background":       [("active", "black"),
-                                        ("!disabled", "black")],
-                    "foreground":       [("focus", "orange"),
-                                        ("!disabled", "orange")]
+                    "background": [("active", "black"),
+                                   ("!disabled", "black")],
+                    "foreground": [("focus", "orange"),
+                                   ("!disabled", "orange")]
                 }
             },
             "TCheckbutton": {
                 "map": {
-                    "background":       [("active", "black"),
-                                        ("disabled", "black"),
-                                        ("!disabled", "black")],
-                    "foreground":       [("focus", "orange"),
-                                        ("disabled", "orange"),
-                                        ("!disabled", "orange")]
+                    "background": [("active", "black"),
+                                   ("disabled", "black"),
+                                   ("!disabled", "black")],
+                    "foreground": [("focus", "orange"),
+                                   ("disabled", "orange"),
+                                   ("!disabled", "orange")]
                 }
             }
         })
 
-        global DestinationCoords
-        global DestHeading
-        global DestHeadingD
-        global DestHeadingR
-        global DestHeadingL
-        global DestDistance
+        global destination_coords
+        global dest_heading
+        global dest_heading_d
+        global dest_heading_r
+        global dest_heading_l
+        global dest_distance
 
-        DestinationCoords = StringVar()
-        DestHeading = StringVar()
-        DestHeadingD = StringVar()
-        DestHeadingR = StringVar()
-        DestHeadingL = StringVar()
-        DestDistance = StringVar()
+        destination_coords = StringVar()
+        dest_heading = StringVar()
+        dest_heading_d = StringVar()
+        dest_heading_r = StringVar()
+        dest_heading_l = StringVar()
+        dest_distance = StringVar()
 
         style.theme_use("EDBearing")
         root.title("EDPlanetBearing")
@@ -466,35 +488,44 @@ try:
         mainframe.columnconfigure(0, weight=1)
         mainframe.rowconfigure(0, weight=1)
 
-        mainframe.bind("<ButtonPress-1>",clickwin)
-        mainframe.bind("<B1-Motion>",dragwin)
+        mainframe.bind("<ButtonPress-1>", clickwin)
+        mainframe.bind("<B1-Motion>", dragwin)
 
         global coords_entry
-        coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=DestinationCoords)
+        coords_entry = ttk.Entry(mainframe, width=18, justify=CENTER, textvariable=destination_coords)
         coords_entry.grid(column=2, columnspan=8, row=1, sticky=(W, E))
         coords_entry.focus()
-        coords_entry.bind("<Return>", Calculate)
+        coords_entry.bind("<Return>", calculate)
 
-        ttk.Label(mainframe, textvariable=DestHeading, justify=CENTER, font=("Helvetica", 16)).grid(column=5, columnspan=6, row=2, sticky=(W, E))
-        ttk.Label(mainframe, textvariable=DestHeadingL, justify=CENTER, font=("Helvetica", 14)).grid(column=2, columnspan=3, row=2, sticky=(E))
-        ttk.Label(mainframe, textvariable=DestHeadingR, justify=CENTER, font=("Helvetica", 14)).grid(column=9, columnspan=2, row=2, sticky=(W))
+        ttk.Label(mainframe, textvariable=dest_heading, justify=CENTER, font=("Helvetica", 16)).grid(column=5,
+                                                                                                     columnspan=6,
+                                                                                                     row=2,
+                                                                                                     sticky=(W, E))
+        ttk.Label(mainframe, textvariable=dest_heading_l, justify=CENTER, font=("Helvetica", 14)).grid(column=2,
+                                                                                                       columnspan=3,
+                                                                                                       row=2,
+                                                                                                       sticky=(E))
+        ttk.Label(mainframe, textvariable=dest_heading_r, justify=CENTER, font=("Helvetica", 14)).grid(column=9,
+                                                                                                       columnspan=2,
+                                                                                                       row=2,
+                                                                                                       sticky=(W))
 
-        global DestHeadingD_Lab
-        DestHeadingD_Lab = ttk.Label(mainframe, textvariable=DestHeadingD, justify=RIGHT, font=("Helvetica", 10))
-        DestHeadingD_Lab.grid(column=8, columnspan=4, row=3, sticky=(E))
+        global dest_heading_d_lab
+        dest_heading_d_lab = ttk.Label(mainframe, textvariable=dest_heading_d, justify=RIGHT, font=("Helvetica", 10))
+        dest_heading_d_lab.grid(column=8, columnspan=4, row=3, sticky=(E))
 
-        global DestDistance_Lab
-        DestDistance_Lab = ttk.Label(mainframe, textvariable=DestDistance, justify=CENTER, font=("Helvetica", 9))
-        DestDistance_Lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
+        global dest_distance_lab
+        dest_distance_lab = ttk.Label(mainframe, textvariable=dest_distance, justify=CENTER, font=("Helvetica", 9))
+        dest_distance_lab.grid(column=5, columnspan=7, row=3, sticky=(N, W, E))
 
-        CloseB = ttk.Button(mainframe, text=" X ", command=callback)
-        CloseB.grid(column=10, row=1, sticky=(E))
+        close_b = ttk.Button(mainframe, text=" X ", command=callback)
+        close_b.grid(column=10, row=1, sticky=(E))
 
-        global PingCB
-        PingCB = ttk.Button(mainframe, image=BMPingAudio0, command=AudioFeedBack.PingCycleMode)
-        PingCB.grid(column=1, row=1, sticky=(E))
+        global ping_cb
+        ping_cb = ttk.Button(mainframe, image=bm_ping_audio0, command=audioFeedBack.ping_cycle_mode)
+        ping_cb.grid(column=1, row=1, sticky=(E))
 
-        resize(root, InfoHudLevel, True)
+        resize(root, info_hud_level, True)
 
         for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
@@ -502,137 +533,145 @@ try:
         root.attributes("-topmost", True)
         root.overrideredirect(True)
 
-        #Add Tooltips
-        CloseB_ttp = CreateToolTip(CloseB, "Close")
-        coords_entry_ttp = CreateToolTip(coords_entry, "Type destination coordinates")
-        if NoOpenAl:
-            PingCB_ttp = CreateToolTip(PingCB, \
-            "OpenAl libraries not detected,\n"
-            "Audio disabled")
+        # Add Tooltips
+        close_b_ttp = createToolTip(close_b, "Close")
+        coords_entry_ttp = createToolTip(coords_entry, "Type destination coordinates")
+        if no_open_al:
+            ping_cb_ttp = createToolTip(ping_cb, \
+                                        "OpenAl libraries not detected,\n"
+                                        "Audio disabled")
         else:
-            PingCB_ttp = CreateToolTip(PingCB, \
-            "Audio Feedback\n"
-            "Red = No audio\n"
-            "Yellow = Only when deviation greater than 45°\n"
-            "Green = All the time")
+            ping_cb_ttp = createToolTip(ping_cb, \
+                                        "Audio Feedback\n"
+                                        "Red = No audio\n"
+                                        "Yellow = Only when deviation greater than 45°\n"
+                                        "Green = All the time")
 
-    def GetShellFolders():
-        global eliteJournalPath
-        global StatusFile
+
+    def getShellFolders():
+        global elite_journal_path
+        global status_file
         try:
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
                 r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
             )
-            JournalDir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
+            journal_dir, type = winreg.QueryValueEx(key, "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}")
 
-            eliteJournalPath = JournalDir + "\\Frontier Developments\\Elite Dangerous\\"
-            LAppdatDdir, type = winreg.QueryValueEx(key, "Local AppData")
-            StatusFile = eliteJournalPath + "Status.json"
-            os.path.exists(StatusFile)
+            elite_journal_path = journal_dir + "\\Frontier Developments\\Elite Dangerous\\"
+            l_appdat_ddir, type = winreg.QueryValueEx(key, "Local AppData")
+            status_file = elite_journal_path + "status.json"
+            os.path.exists(status_file)
         except Exception as e:
             print("E.Getting Journal Path" + str(e))
-            AddLogEntry("Getting Journal Path" + str(e))
-            root.after(0,callback)
+            addLogEntry("Getting Journal Path" + str(e))
+            root.after(0, callback)
 
-    if NoOpenAl:
-        class AudioFeedBack:
-            def Start():
-                global PingDelay
-                global PingPosX
-                global PingPosZ
-                global PingPitch
-                global PingDelayMult
-                PingDelay = 1000
-                PingPosX = 0.0
-                PingPosZ = 0.0
-                PingPitch = 1.0
-                PingDelayMult = 2
-            def PingLoop():
+
+    if no_open_al:
+        class audioFeedBack:
+            def start():
+                global ping_delay
+                global ping_pos_x
+                global ping_pos_z
+                global ping_pitch
+                global ping_delay_mult
+                ping_delay = 1000
+                ping_pos_x = 0.0
+                ping_pos_z = 0.0
+                ping_pitch = 1.0
+                ping_delay_mult = 2
+
+            def ping_loop():
                 pass
-            def DestinationReached():
+
+            def destination_reached():
                 pass
-            def PingCycleMode(AudioModeSet = -1):
+
+            def ping_cycle_mode(AudioModeSet=-1):
                 pass
     else:
-        class AudioFeedBack:
-            def Start():
-                #Prepare audio feedback
+        class audioFeedBack:
+            def start():
+                # Prepare audio feedback
                 try:
                     global sink
                     global source
                     global data
-                    global PingDelay
-                    global PingPosX
-                    global PingPosZ
-                    global PingPitch
-                    global PingDelayMult
+                    global ping_delay
+                    global ping_pos_x
+                    global ping_pos_z
+                    global ping_pitch
+                    global ping_delay_mult
                     sound_beep = resource_path("beep.wav")
-                    PingDelay = 1000
-                    PingPosX = 0.0
-                    PingPosZ = 0.0
-                    PingPitch = 1.0
-                    PingDelayMult = 2
+                    ping_delay = 1000
+                    ping_pos_x = 0.0
+                    ping_pos_z = 0.0
+                    ping_pitch = 1.0
+                    ping_delay_mult = 2
 
                     sink = SoundSink()
                     sink.activate()
-                    source = SoundSource(position=[PingPosX, 0, PingPosZ])
-                    #source.looping = False
+                    source = SoundSource(position=[ping_pos_x, 0, ping_pos_z])
+                    # source.looping = False
                     source.gain = 50.0
                     data = load_wav_file(sound_beep)
                     sink.play(source)
                     print("Audio system started")
                 except Exception as e:
                     print("E.Starting Audio: " + str(e))
-                    AddLogEntry(e)
-            def PingLoop():
-                global PingDelay
-                global PingPosX
-                global PingPosZ
-                global PingPitch
-                global InfoHudLevel
+                    addLogEntry(e)
+
+            def ping_loop():
+                global ping_delay
+                global ping_pos_x
+                global ping_pos_z
+                global ping_pitch
+                global info_hud_level
                 global sink
                 global source
                 global data
-                global AudioMode
-                global DirectionOverMargin
+                global audio_mode
+                global direction_over_margin
                 try:
-                    if InfoHudLevel != 0:
-                        if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
-                            source.bufferqueue = [] #Clear any residual queued sounds
-                            source.position = [PingPosX, source.position[1], PingPosZ]
-                            source.pitch = PingPitch
+                    if info_hud_level != 0:
+                        if (audio_mode == 1 and direction_over_margin) or audio_mode == 2:
+                            source.bufferqueue = []  # Clear any residual queued sounds
+                            source.position = [ping_pos_x, source.position[1], ping_pos_z]
+                            source.pitch = ping_pitch
                             source.queue(data)
                             sink.update()
                             print("Ping at: " + str(source.position))
-                            source.bufferqueue = [] #Clear any residual queued sounds
+                            source.bufferqueue = []  # Clear any residual queued sounds
                 except Exception as e:
                     print("E.Playing Audio(Loop): " + str(e))
-                    AddLogEntry(e)
+                    addLogEntry(e)
                 finally:
-                    print ("Ping Multiplier: " + str(PingDelayMult) + " - Distance: " + str(PingDelay*PingDelayMult))
-                    root.after(int(PingDelay*PingDelayMult),AudioFeedBack.PingLoop)
-            def DestinationReached():
+                    print("Ping Multiplier: " + str(ping_delay_mult) + " - Distance: " + str(
+                        ping_delay * ping_delay_mult))
+                    root.after(int(ping_delay * ping_delay_mult), audioFeedBack.ping_loop)
+
+            def destination_reached():
                 try:
-                    global PingPitch
-                    global InfoHudLevel
+                    global ping_pitch
+                    global info_hud_level
                     global sink
                     global source
                     global data
-                    global AudioMode
-                    global DirectionOverMargin
+                    global audio_mode
+                    global direction_over_margin
 
-                    source.bufferqueue = [] #Clear any residual queued sounds
+                    source.bufferqueue = []  # Clear any residual queued sounds
                     PingPosX = 0.0
                     PingPosZ = 0.0
-                    PingPitch = 1.5
+                    ping_pitch = 1.5
 
-                    if InfoHudLevel != 0:
-                        if AudioMode  != 0:
-                            AudioFeedBack.PingCycleMode(0)
+                    if info_hud_level != 0:
+                        if audio_mode != 0:
+                            audioFeedBack.ping_cycle_mode(0)
                             sink.update()
                             source.position = [0.0, source.position[1], 0.0]
-                            source.pitch = PingPitch
+                            source.pitch = ping_pitch
                             source.queue(data)
                             source.queue(data)
                             source.queue(data)
@@ -640,108 +679,109 @@ try:
                             sink.update()
                 except Exception as e:
                     print("E.Playing Audio(Reached): " + str(e))
-                    AddLogEntry(e)
+                    addLogEntry(e)
                 finally:
-                    if UsingConfigFile:
-                        root.after(0,callback)
+                    if using_config_file:
+                        root.after(0, callback)
 
-
-            def PingCycleMode(AudioModeSet = -1):
-                global AudioMode
+            def ping_cycle_mode(audio_mode_set=-1):
+                global audio_mode
                 try:
-                    if AudioModeSet != -1:
-                        AudioMode = AudioModeSet
-                    elif AudioMode == 2:
-                        AudioMode = 0
+                    if audio_mode_set != -1:
+                        audio_mode = audio_mode_set
+                    elif audio_mode == 2:
+                        audio_mode = 0
                     else:
-                        AudioMode = AudioMode + 1
-                    exec('PingCB["image"] = BMPingAudio' + str(AudioMode))
+                        audio_mode = audio_mode + 1
+                    exec('ping_cb["image"] = bm_ping_audio' + str(audio_mode))
                     coords_entry.focus()
-                    print("Audio Mode set to: " + str(AudioMode) + " - " + str(PingCB["image"]))
+                    print("Audio Mode set to: " + str(audio_mode) + " - " + str(ping_cb["image"]))
                 except Exception as e:
                     print("E.Setting Audio Feedback image: " + str(e))
-                    AddLogEntry(e)
+                    addLogEntry(e)
 
-    def GetCLArguments(argv=argv):
-        global DestinationCoords
+
+    def getCLArguments(argv=argv):
+        global destination_coords
         try:
             argv = [element.lower() for element in argv]
             myargs = getopts(argv)
             if "+debug" in argv:
-                global DebugMode
-                DebugMode = True
+                global debug_mode
+                debug_mode = True
             if "+close" in argv:
-                root.after(0,callback)
+                root.after(0, callback)
             if "+lat" in myargs and "+long" in myargs:
-                ArgLat = myargs["+lat"]
-                ArgLong = myargs["+long"]
-                DestinationCoords.set(str(ArgLat) + ", " + str(ArgLong))
-                root.after(250,FocusElite)
-                ClearFiles("ConfigFile")
+                arg_lat = myargs["+lat"]
+                arg_long = myargs["+long"]
+                destination_coords.set(str(arg_lat) + ", " + str(arg_long))
+                root.after(250, focusElite)
+                clearFiles("ConfigFile")
             if "+audio" in myargs:
-                AudioFeedBack.PingCycleMode(int(myargs["+audio"]))
+                audioFeedBack.ping_cycle_mode(int(myargs["+audio"]))
         except Exception as e:
-            print (e)
-            DebugMode = True
-            AddLogEntry(e)
+            print(e)
+            debug_mode = True
+            addLogEntry(e)
 
-    def GetConfigFromFile(Startup=False): #Gets config from config file if exists and applies it
-        global EDPBConfigFile
-        global AudioMode
-        global InfoHudLevel
-        global UsingConfigFile
-        global EDPBConfigContentPrevious
-        global DestinationCoords
+
+    def getConfigFromFile(startup=False):  # Gets config from config file if exists and applies it
+        global edpb_config_file
+        global audio_mode
+        global info_hud_level
+        global using_config_file
+        global edpb_config_content_previous
+        global destination_coords
         try:
-            EDPBConfigContentPrevious
+            edpb_config_content_previous
         except:
-            EDPBConfigContentPrevious = ''
+            edpb_config_content_previous = ''
         try:
-            if os.path.exists(EDPBConfigFile):
+            if os.path.exists(edpb_config_file):
                 try:
-                    with open(EDPBConfigFile) as f:
-                        EDPBConfigContent = f.read().lower()
-                    if EDPBConfigContentPrevious == EDPBConfigContent:
+                    with open(edpb_config_file) as f:
+                        edpb_config_content = f.read().lower()
+                    if edpb_config_content_previous == edpb_config_content:
                         raise Exception('SameConfig')
-                    if "close" in EDPBConfigContent:
+                    if "close" in edpb_config_content:
                         callback()
-                    Configs = json.loads(EDPBConfigContent)
+                    configs = json.loads(edpb_config_content)
                     try:
-                        DstLat = float(Configs["lat"])
-                        DstLong = float(Configs["long"])
+                        dst_lat = float(configs["lat"])
+                        dst_long = float(configs["long"])
                     except:
                         print("E.Couldn't load coords from existing config file.")
-                        AddLogEntry("E.Couldn't load coords from existing config file.")
-                        InfoHudLevel = 0
-                        resize(root, InfoHudLevel)
-                        DestinationCoords.set("")
-                        AudioFeedBack.PingCycleMode(0)
-                        root.after(500, Calculate)
+                        addLogEntry("E.Couldn't load coords from existing config file.")
+                        info_hud_level = 0
+                        resize(root, info_hud_level)
+                        destination_coords.set("")
+                        audioFeedBack.ping_cycle_mode(0)
+                        root.after(500, calculate)
                         try:
-                            os.remove(EDPBConfigFile)
+                            os.remove(edpb_config_file)
                         except:
                             print("E.Deleting empty config file")
-                            AddLogEntry("Deleting empty config file")
+                            addLogEntry("Deleting empty config file")
                         raise
 
                     try:
-                        AudioFeedBack.PingCycleMode(int(Configs["audio"]))
-                        UsingConfigFile = True
+                        audioFeedBack.ping_cycle_mode(int(configs["audio"]))
+                        using_config_file = True
                     except:
                         pass
-                    if DstLat == -0:
-                        DstLat = 0.0
+                    if dst_lat == -0:
+                        dst_lat = 0.0
 
-                    DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
+                    destination_coords.set(str(dst_lat) + ", " + str(dst_long))
 
-                    EDPBConfigContentPrevious = EDPBConfigContent
+                    edpb_config_content_previous = edpb_config_content
 
-                    if Startup:
-                        root.after(100, FocusElite)
-                        root.after(150, Calculate)
-                    elif InfoHudLevel == 0:
-                        root.after(0, Calculate)
-                    #Disable GUI
+                    if startup:
+                        root.after(100, focusElite)
+                        root.after(150, calculate)
+                    elif info_hud_level == 0:
+                        root.after(0, calculate)
+                    # Disable GUI
                     if str(coords_entry["state"]) == "normal":
                         coords_entry["state"] = "disabled"
                         print("GUI Disabled")
@@ -750,239 +790,249 @@ try:
                         pass
                     else:
                         print("E.Reading Config file: " + str(e))
-                        AddLogEntry(e)
+                        addLogEntry(e)
                         if str(coords_entry["state"]) != "normal":
                             coords_entry["state"] = "normal"
                             print("GUI Enabled")
-                    EDPBConfigContentPrevious = EDPBConfigContent
+                    edpb_config_content_previous = edpb_config_content
             else:
                 if str(coords_entry["state"]) != "normal":
                     coords_entry["state"] = "normal"
-                    EDPBConfigContentPrevious = ''
+                    edpb_config_content_previous = ''
                     print("GUI Enabled")
         except:
             coords_entry["state"] = "normal"
-            EDPBConfigContentPrevious = ''
+            edpb_config_content_previous = ''
             print("GUI Enabled")
-            AddLogEntry(e)
+            addLogEntry(e)
 
-        root.after(2000, GetConfigFromFile)
+        root.after(2000, getConfigFromFile)
 
-    def Calculate(event="None"):
-        global NoRun
-        global DstLat
-        global DstLong
-        global InfoHudLevel
-        DestinationRaw = (DestinationCoords.get()).replace(","," ")
-        Destination = str(DestinationRaw).split()
+
+    def calculate(event="None"):
+        global no_run
+        global dst_lat
+        global dst_long
+        global info_hud_level
+        destination_raw = (destination_coords.get()).replace(",", " ")
+        destination = str(destination_raw).split()
         try:
-            DstLat = float(Destination[0])
-            DstLong = float(Destination[1])
-            if DstLat == -0:
-                DstLat = 0.0
+            dst_lat = float(destination[0])
+            dst_long = float(destination[1])
+            if dst_lat == -0:
+                dst_lat = 0.0
         except:
-            NoRun = -1
+            no_run = -1
             print("Destination missing")
         try:
             if "Return" in event.keysym:
-                DestinationCoords.set(str(DstLat) + ", " + str(DstLong))
-                ReadJournalFile.Status()
-                Calculate()
-                FocusElite()
+                destination_coords.set(str(dst_lat) + ", " + str(dst_long))
+                readJournalFile.status()
+                calculate()
+                focusElite()
         except:
             pass
 
-        if NoRun != 0:
+        if no_run != 0:
             print("Coords irrelevant")
-            InfoHudLevel = 0
+            info_hud_level = 0
         else:
             print("Coords relevant")
-            CalcHeading()
-            CalcDArrows()
-            CalcDistance()
-            CalcAngDesc()
-        print("HUD level: " + str(InfoHudLevel))
-        resize(root, InfoHudLevel)
+            calcHeading()
+            calcDArrows()
+            calcDistance()
+            calcAngDesc()
+        print("HUD level: " + str(info_hud_level))
+        resize(root, info_hud_level)
 
-    def CalcHeading():
-        global CurrentLatDeg
-        global CurrentLongDeg
-        global DstLat
-        global DstLong
-        global Bearing
-        global InfoHudLevel
+
+    def calcHeading():
+        global current_lat_deg
+        global current_long_deg
+        global dst_lat
+        global dst_long
+        global bearing
+        global info_hud_level
         try:
-            CurrentLatRad = math.radians(CurrentLatDeg)
-            CurrentLongRad = math.radians(CurrentLongDeg)
-            DstLatRad = math.radians(float(DstLat))
-            DstLongRad = math.radians(float(DstLong))
+            current_lat_rad = math.radians(current_lat_deg)
+            current_long_rad = math.radians(current_long_deg)
+            dst_lat_rad = math.radians(float(dst_lat))
+            dst_long_rad = math.radians(float(dst_long))
 
-            x = math.cos(CurrentLatRad) * math.sin(DstLatRad) - math.sin(CurrentLatRad) * math.cos(DstLatRad) * math.cos(DstLongRad-CurrentLongRad)
-            y = math.sin(DstLongRad-CurrentLongRad) * math.cos(DstLatRad)
-            BearingRad = math.atan2(y, x)
-            BearingDeg = math.degrees(BearingRad)
-            Bearing = int((BearingDeg + 360) % 360)
-            DestHeading.set(str(Bearing) + "°")
-            InfoHudLevel = 1
+            x = math.cos(current_lat_rad) * math.sin(dst_lat_rad) - math.sin(current_lat_rad) * math.cos(
+                dst_lat_rad) * math.cos(dst_long_rad - current_long_rad)
+            y = math.sin(dst_long_rad - current_long_rad) * math.cos(dst_lat_rad)
+            bearing_rad = math.atan2(y, x)
+            bearing_deg = math.degrees(bearing_rad)
+            bearing = int((bearing_deg + 360) % 360)
+            dest_heading.set(str(bearing) + "°")
+            info_hud_level = 1
         except Exception as e:
-            AddLogEntry("CalcHeading(): " + str(e))
+            addLogEntry("CalcHeading(): " + str(e))
 
-    def CalcDArrows():
-        global Bearing
-        global CurrentHead
-        global PingPosX
-        global PingPosZ
-        global PingPitch
-        global DirectionOverMargin
-        global InfoHudLevel
+
+    def calcDArrows():
+        global bearing
+        global current_head
+        global ping_pos_x
+        global ping_pos_z
+        global ping_pitch
+        global direction_over_margin
+        global info_hud_level
         try:
-            if CurrentHead < Bearing:
-                CurrentHead += 360  # denormalize ...
-            DirectionRaw = CurrentHead - Bearing   # Calculate left turn, will allways be 0..359
-            Direction = DirectionRaw
-            print("DirectionRaw: " + str(DirectionRaw) + "°")
-            LeftArrow = ""
-            RightArrow = ""
+            if current_head < bearing:
+                current_head += 360  # denormalize ...
+            direction_raw = current_head - bearing  # Calculate left turn, will allways be 0..359
+            direction = direction_raw
+            print("DirectionRaw: " + str(direction_raw) + "°")
+            left_arrow = ""
+            right_arrow = ""
             # take the smallest turn
-            if Direction <= 1 or Direction >= 359:
+            if direction <= 1 or direction >= 359:
                 print("Going Forward")
-                if Direction > 180:
-                    Direction = 360 - Direction
-            elif Direction < 180:
+                if direction > 180:
+                    direction = 360 - direction
+            elif direction < 180:
                 # Turn left : Direction degrees
                 print("Going Left")
-                LeftArrow = "<"
-                if Direction >= 30:
-                    LeftArrow = "<<"
-                if Direction >= 90:
-                    LeftArrow = "<<<"
-            elif Direction > 180:
+                left_arrow = "<"
+                if direction >= 30:
+                    left_arrow = "<<"
+                if direction >= 90:
+                    left_arrow = "<<<"
+            elif direction > 180:
                 # Turn right : 360-Direction degrees
                 print("Going Right")
-                Direction = 360 - Direction
-                RightArrow = ">"
-                if Direction >= 30:
-                    RightArrow = ">>"
-                if Direction >= 90:
-                    RightArrow = ">>>"
+                direction = 360 - direction
+                right_arrow = ">"
+                if direction >= 30:
+                    right_arrow = ">>"
+                if direction >= 90:
+                    right_arrow = ">>>"
             else:
                 print("Going Backwards")
-                LeftArrow = "<<<"
-                RightArrow = ">>>"
-            DestHeadingL.set(LeftArrow)
-            DestHeadingR.set(RightArrow)
+                left_arrow = "<<<"
+                right_arrow = ">>>"
+            dest_heading_l.set(left_arrow)
+            dest_heading_r.set(right_arrow)
 
-            #Setting 3D position of the beep source
-            PingPosX = math.sin(math.radians(-DirectionRaw))*50
-            PingPosZ = math.cos(math.radians(-DirectionRaw))*50
-            PingPitch = 1.0 - (Direction / 360)
+            # Setting 3D position of the beep source
+            ping_pos_x = math.sin(math.radians(-direction_raw)) * 50
+            ping_pos_z = math.cos(math.radians(-direction_raw)) * 50
+            ping_pitch = 1.0 - (direction / 360)
 
-            print("PingPosX: " + str(PingPosX))
-            print("PingPosZ: " + str(PingPosZ))
-            print("PingPitch: " + str(PingPitch))
+            print("PingPosX: " + str(ping_pos_x))
+            print("PingPosZ: " + str(ping_pos_z))
+            print("PingPitch: " + str(ping_pitch))
 
-            AlertMargin = 45
-            if AlertMargin < Direction:
-                DirectionOverMargin = True
+            alert_margin = 45
+            if alert_margin < direction:
+                direction_over_margin = True
                 print("Over 45º")
             else:
-                DirectionOverMargin = False
+                direction_over_margin = False
                 print("Not over 45º")
 
         except Exception as e:
-            AddLogEntry("CalcDArrows(): " + str(e))
+            addLogEntry("CalcDArrows(): " + str(e))
 
-    def CalcDistance():
-        global BodyRadius
-        global CurrentLatDeg
-        global CurrentLongDeg
-        global DstLat
-        global DstLong
-        global CurrentAlt
-        global FlagSRV
-        global FlagSC
-        global Distance_meters
-        global InfoHudLevel
-        global PingDelayMult
-        MinDistance = 100
+
+    def calcDistance():
+        global body_radius
+        global current_lat_deg
+        global current_long_deg
+        global dst_lat
+        global dst_long
+        global current_alt
+        global flag_srv
+        global flag_sc
+        global distance_meters
+        global info_hud_level
+        global ping_delay_mult
+        min_distance = 100
         print("Starting Distance Calculation")
 
         try:
-            if BodyRadius > 0:
-                #Distance
-                DifLat = math.radians(DstLat - CurrentLatDeg)
-                DifLong = math.radians(DstLong - CurrentLongDeg)
+            if body_radius > 0:
+                # Distance
+                dif_lat = math.radians(dst_lat - current_lat_deg)
+                dif_long = math.radians(dst_long - current_long_deg)
 
-                Dis1 = math.sin(DifLat / 2)**2 + math.cos(math.radians(CurrentLatDeg)) * math.cos(math.radians(float(DstLat))) * math.sin(DifLong / 2)**2
-                Dis2 = 2 * math.atan2(math.sqrt(Dis1), math.sqrt(1-Dis1))
-                Distance_Surface = int(BodyRadius * Dis2)
-                Distance_meters = int(math.sqrt(Distance_Surface**2 + CurrentAlt**2))
+                dis1 = math.sin(dif_lat / 2) ** 2 + math.cos(math.radians(current_lat_deg)) * math.cos(
+                    math.radians(float(dst_lat))) * math.sin(dif_long / 2) ** 2
+                dis2 = 2 * math.atan2(math.sqrt(dis1), math.sqrt(1 - dis1))
+                distance_surface = int(body_radius * dis2)
+                distance_meters = int(math.sqrt(distance_surface ** 2 + current_alt ** 2))
 
-                if Distance_meters >= 100000:
-                    Distance = int(Distance_meters / 1000)
-                    DisScale = "km"
+                if distance_meters >= 100000:
+                    distance = int(distance_meters / 1000)
+                    dis_scale = "km"
                 else:
-                    Distance = Distance_meters
-                    DisScale = "m"
-                Distance = format(Distance, ",d")
-                DestDistance.set(str(Distance)+" "+DisScale)
+                    distance = distance_meters
+                    dis_scale = "m"
+                distance = format(distance, ",d")
+                dest_distance.set(str(distance) + " " + dis_scale)
 
-                InfoHudLevel = 2
+                info_hud_level = 2
 
                 try:
-                    if FlagSRV != 0:
-                        MinDistance = 100
-                        PingDelayMult = Distance_Surface / 600
-                    elif FlagSC != 0:
-                        MinDistance = 1
-                        PingDelayMult = Distance_Surface / 100000
+                    if flag_srv != 0:
+                        min_distance = 100
+                        ping_delay_mult = distance_surface / 600
+                    elif flag_sc != 0:
+                        min_distance = 1
+                        ping_delay_mult = distance_surface / 100000
                     else:
-                        MinDistance = 2000
-                        PingDelayMult = Distance_Surface / 20000
-                    print ("Ping Multiplier: " + str(PingDelayMult))
-                    PingDelayMult = max(0.75,min(2,PingDelayMult))
-                    if (Distance_meters < MinDistance):
-                        AudioFeedBack.DestinationReached()
+                        min_distance = 2000
+                        ping_delay_mult = distance_surface / 20000
+                    print("Ping Multiplier: " + str(ping_delay_mult))
+                    ping_delay_mult = max(0.75, min(2, ping_delay_mult))
+                    if (distance_meters < min_distance):
+                        audioFeedBack.destination_reached()
                 except:
                     print("E.Shutting when destination is reached")
-                print("Surface in meters:  " + str(Distance_Surface))
-                print("Distance in meters: " + str(Distance_meters))
+                print("Surface in meters:  " + str(distance_surface))
+                print("Distance in meters: " + str(distance_meters))
             else:
                 try:
-                    PingDelayMult = 2
-                    if (DstLat - CurrentLatDeg < 0.01 and DstLong - CurrentLongDeg < 0.01):
-                        AudioFeedBack.DestinationReached()
+                    ping_delay_mult = 2
+                    if (dst_lat - current_lat_deg < 0.01 and dst_long - current_long_deg < 0.01):
+                        audioFeedBack.destination_reached()
                 except:
                     print("E.Shutting when destination is reached")
         except Exception as e:
-            AddLogEntry("CalcDistance(): " + str(e))
+            addLogEntry("CalcDistance(): " + str(e))
 
-    def CalcAngDesc(): #Angle of descent
-        global DescentAngle
-        global CurrentAlt
-        global Distance_meters
-        global FlagSRV
+
+    def calcAngDesc():  # Angle of descent
+        global descent_angle
+        global current_alt
+        global distance_meters
+        global flag_srv
         try:
-            DescentAngle = - int(math.degrees(math.atan(CurrentAlt/Distance_meters)))
-            print("Angle of Descent: " + str(DescentAngle))
-            if DescentAngle <= 0 and Distance_meters < 1000000 and FlagSRV == 0 and CurrentAlt > 3000:
-                DestHeadingD.set(str(DescentAngle) + "°")
-                DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                DestHeadingD_Lab.config(foreground="orange")
-                if DescentAngle <= -60 or DescentAngle > -5 :
-                    DestDistance_Lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                    DestHeadingD_Lab.config(foreground="red")
+            descent_angle = - int(math.degrees(math.atan(current_alt / distance_meters)))
+            print("Angle of Descent: " + str(descent_angle))
+            if descent_angle <= 0 and distance_meters < 1000000 and flag_srv == 0 and current_alt > 3000:
+                dest_heading_d.set(str(descent_angle) + "°")
+                dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                dest_heading_d_lab.config(foreground="orange")
+                if descent_angle <= -60 or descent_angle > -5:
+                    dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                    dest_heading_d_lab.config(foreground="red")
             else:
-                DestHeadingD.set("")
+                dest_heading_d.set("")
         except Exception as e:
-            AddLogEntry("CalcAngDesc(): " + str(e))
+            addLogEntry("CalcAngDesc(): " + str(e))
 except Exception as e:
     try:
-        LogFile = os.path.dirname(os.path.realpath(__file__))+"\\" + "EDPB_log_" + str(datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(datetime.datetime.now().day) + ".txt"
-        EntryLog = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(e)
-        with open(LogFile,"a") as f:
-            f.write(EntryLog + "\n")
-        print("Entry Log added: " + EntryLog)
+        log_file = os.path.dirname(os.path.realpath(__file__)) + "\\" + "EDPB_log_" + str(
+            datetime.datetime.now().year) + "-" + str(datetime.datetime.now().month) + "-" + str(
+            datetime.datetime.now().day) + ".txt"
+        entry_log = str(datetime.datetime.now().hour) + ":" + str(datetime.datetime.now().minute) + ":" + str(
+            datetime.datetime.now().second) + "." + str(datetime.datetime.now().microsecond) + " - " + str(e)
+        with open(log_file, "a") as f:
+            f.write(entry_log + "\n")
+        print("Entry Log added: " + entry_log)
     except Exception as e:
         print("Log failed: " + str(e))
     finally:
@@ -992,37 +1042,37 @@ if __name__ == "__main__":
     try:
         root = Tk()
         style = ttk.Style()
-        global EDPBFolder
+        global edpb_folder
 
-        DebugMode = False    #Temporary variables for testing
+        debug_mode = False  # Temporary variables for testing
 
-        GetShellFolders()
-        EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
+        getShellFolders()
+        edpb_folder = os.path.dirname(os.path.realpath(__file__)) + "\\"
 
-        EDPBLock = os.path.normpath(tempfile.gettempdir() + "/EDPBSingleton.lock")
-        EDPBConfigFile = EDPBFolder + "Config.json"
-        InfoHudLevel = 0
-        AudioMode = 0
+        edpb_lock = os.path.normpath(tempfile.gettempdir() + "/EDPBSingleton.lock")
+        edpb_config_file = edpb_folder + "Config.json"
+        info_hud_level = 0
+        audio_mode = 0
         gfx_dir = 'GFX'
-        BMPingAudio0 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio0.png")))
-        BMPingAudio1 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio1.png")))
-        BMPingAudio2 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio2.png")))
+        bm_ping_audio0 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio0.png")))
+        bm_ping_audio1 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio1.png")))
+        bm_ping_audio2 = PhotoImage(file=resource_path(os.path.join(gfx_dir, "BMPingAudio2.png")))
 
-        event_handler = JournalUpdate()
+        event_handler = journalUpdate()
         observer = Observer()
-        observer.schedule(event_handler, path=eliteJournalPath, recursive=False)
+        observer.schedule(event_handler, path=elite_journal_path, recursive=False)
         observer.start()
 
-        AudioFeedBack.Start()
+        audioFeedBack.start()
 
-        CreateGUI(root)
-        GetCLArguments()
+        create_gui(root)
+        getCLArguments()
 
-        root.after(2500,AudioFeedBack.PingLoop)
-        root.after(100, GetConfigFromFile, True)
-        root.after(100, SingleInstance,True)
+        root.after(2500, audioFeedBack.ping_loop)
+        root.after(100, getConfigFromFile, True)
+        root.after(100, singleInstance, True)
         root.mainloop()
     except Exception as e:
-        DebugMode = True
-        AddLogEntry(e)
+        debug_mode = True
+        addLogEntry(e)
         callback()
