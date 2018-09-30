@@ -2,7 +2,10 @@ AppVer = "v2.6.3"
 
 global NoOpenAl;NoOpenAl = False
 
-import os, datetime
+import datetime
+import os
+import tempfile
+
 try:
     import json, math, winreg, win32gui, re, random, time, errno
     from tkinter import *
@@ -107,6 +110,7 @@ try:
                     SessionID = str(random.randrange(0, 1000000000))
                     with open(EDPBLock,"w") as f:
                         f.write(SessionID)
+                    print("Singleton: " + EDPBLock)
                     print("Session ID: " + SessionID)
                     root.after(1000,SingleInstance)
                 except Exception as e: # Guard against race condition
@@ -995,7 +999,7 @@ if __name__ == "__main__":
         GetShellFolders()
         EDPBFolder = os.path.dirname(os.path.realpath(__file__))+"\\"
 
-        EDPBLock = EDPBFolder + "Session.lock"
+        EDPBLock = os.path.normpath(tempfile.gettempdir() + "/EDPBSingleton.lock")
         EDPBConfigFile = EDPBFolder + "Config.json"
         InfoHudLevel = 0
         AudioMode = 0
