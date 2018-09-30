@@ -1,4 +1,4 @@
-AppVer = "v2.6.2"
+AppVer = "v2.6.3"
 
 global NoOpenAl;NoOpenAl = False
 
@@ -298,7 +298,7 @@ try:
                 FlagDocked = StatusFlags & 1<<0 # If ship is docked
                 FlagLanded = StatusFlags & 1<<1 # If ship is landed
                 FlagSRV = StatusFlags & (1<<26) # If driving SRV
-                FlagSC = StatusFlags & (1<<16) # If in Supercruise
+                FlagSC = StatusFlags & (1<<4) # If in Supercruise
                 FlagNoCoords = 2097152 - (StatusFlags & (1<<21)) # If coordinates are not available
                 NoRun = FlagDocked+FlagLanded+FlagNoCoords
 
@@ -307,6 +307,7 @@ try:
                 print("FlagLanded: " + str(FlagLanded))
                 print("FlagNoCoords: " + str(FlagNoCoords))
                 print("FlagSRV: " + str(FlagSRV))
+                print("FlagSC: " + str(FlagSC))
                 print("NoRun: " + str(NoRun))
 
                 CurrentLatDeg = round(Status["Latitude"],4)
@@ -594,6 +595,7 @@ try:
                 try:
                     if InfoHudLevel != 0:
                         if (AudioMode  == 1 and DirectionOverMargin) or AudioMode  == 2:
+                            source.bufferqueue = [] #Clear any residual queued sounds
                             source.position = [PingPosX, source.position[1], PingPosZ]
                             source.pitch = PingPitch
                             source.queue(data)
@@ -929,15 +931,17 @@ try:
                         PingDelayMult = Distance_Surface / 600
                     elif FlagSC != 0:
                         MinDistance = 1
-                        PingDelayMult = Distance_Surface / 200000
+                        PingDelayMult = Distance_Surface / 100000
                     else:
                         MinDistance = 2000
-                        PingDelayMult = Distance_Surface / 8000
-                    PingDelayMult = max(0.5,min(2,PingDelayMult))
+                        PingDelayMult = Distance_Surface / 20000
+                    print ("Ping Multiplier: " + str(PingDelayMult))
+                    PingDelayMult = max(0.75,min(2,PingDelayMult))
                     if (Distance_meters < MinDistance):
                         AudioFeedBack.DestinationReached()
                 except:
                     print("E.Shutting when destination is reached")
+                print("Surface in meters:  " + str(Distance_Surface))
                 print("Distance in meters: " + str(Distance_meters))
             else:
                 try:
