@@ -1,10 +1,10 @@
-AppVer = "v2.6.3"
-
-global no_open_al; no_open_al = False
+AppVer = "v2.6.4"
 
 import datetime
 import os
 import tempfile
+
+global no_open_al; no_open_al = False
 
 try:
     import json, math, winreg, win32gui, re, random, time, errno
@@ -947,6 +947,7 @@ try:
         global flag_srv
         global flag_sc
         global distance_meters
+        global distance_surface
         global info_hud_level
         global ping_delay_mult
         min_distance = 100
@@ -976,26 +977,22 @@ try:
                 info_hud_level = 2
 
                 try:
-                    if flag_srv != 0:
+                    if flag_srv != 0:   # Distance calculations for SRV
                         min_distance = 100
-                        ping_delay_mult = distance_surface / 600
-                    elif flag_sc != 0:
-                        min_distance = 1
-                        ping_delay_mult = distance_surface / 100000
-                    else:
+                    elif flag_sc != 0:  # Distance calculations for supercruise
+                        min_distance = 0
+                    else:               # Distance calculations for normal flight
                         min_distance = 2000
-                        ping_delay_mult = distance_surface / 20000
-                    print("Ping Multiplier: " + str(ping_delay_mult))
-                    ping_delay_mult = max(0.75, min(2, ping_delay_mult))
                     if (distance_meters < min_distance):
                         audioFeedBack.destination_reached()
                 except:
                     print("E.Shutting when destination is reached")
+
                 print("Surface in meters:  " + str(distance_surface))
                 print("Distance in meters: " + str(distance_meters))
             else:
                 try:
-                    ping_delay_mult = 2
+                    ping_delay_mult = 2.0
                     if (dst_lat - current_lat_deg < 0.01 and dst_long - current_long_deg < 0.01):
                         audioFeedBack.destination_reached()
                 except:
@@ -1008,17 +1005,46 @@ try:
         global descent_angle
         global current_alt
         global distance_meters
+        global distance_surface
         global flag_srv
+        global flag_sc
+        global ping_delay_mult
+
+        ping_delay_mult_min = 0.75
+        ping_delay_mult_max = 2.0
+
+
         try:
             descent_angle = - int(math.degrees(math.atan(current_alt / distance_meters)))
             print("Angle of Descent: " + str(descent_angle))
-            if descent_angle <= 0 and distance_meters < 1000000 and flag_srv == 0 and current_alt > 3000:
-                dest_heading_d.set(str(descent_angle) + "°")
-                dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                dest_heading_d_lab.config(foreground="orange")
-                if descent_angle <= -60 or descent_angle > -5:
+
+            try:
+                if flag_srv != 0:  # Distance calculations for SRV
+                    min_beeping_distance = 50
+                    max_beeping_distance = 2000
+                    ping_delay_mult = distance_surface / 600
+                else:  # Angle calculations for normal flight and supercruise
+                    min_beeping_angle = -5
+                    max_beeping_angle = -60
+                    # WIP: This is not the formula I'm looking for but gives approximate results to what I'm looking for.
+                    ping_delay_mult = max_beeping_angle / descent_angle / min_beeping_angle
+                print("Ping Multiplier: " + str(ping_delay_mult))
+                ping_delay_mult = max(ping_delay_mult_min, min(ping_delay_mult_max, ping_delay_mult))
+            except:
+                print("E.Calculating Beeping descent")
+
+            if descent_angle <= 0 and distance_meters < 1000000:
+                if  flag_srv == 0 and current_alt > 3000:
+                    dest_heading_d.set(str(descent_angle) + "°")
                     dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
-                    dest_heading_d_lab.config(foreground="red")
+                    dest_heading_d_lab.config(foreground="orange")
+                    ping_delay_mult = max(ping_delay_mult_min, min(2, ping_delay_mult))
+                    if descent_angle <= -60 or descent_angle > -5:
+                        dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
+                        dest_heading_d_lab.config(foreground="red")
+                    if descent_angle <= -60:
+                        ping_delay_mult = ping_delay_mult_max
+
             else:
                 dest_heading_d.set("")
         except Exception as e:
