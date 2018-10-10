@@ -1055,9 +1055,6 @@ try:
                     if descent_angle <= -60 or descent_angle > -5:
                         dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
                         dest_heading_d_lab.config(foreground="red")
-                    if descent_angle <= -60:
-                        ping_delay_mult = ping_delay_mult_min
-
             else:
                 dest_heading_d.set("")
         except Exception as e:
