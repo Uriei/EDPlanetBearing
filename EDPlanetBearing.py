@@ -1024,10 +1024,23 @@ try:
                     max_beeping_distance = 2000
                     ping_delay_mult = distance_surface / 600
                 else:  # Angle calculations for normal flight and supercruise
-                    min_beeping_angle = -5
-                    max_beeping_angle = -60
-                    # WIP: Still adjusting this.
-                    ping_delay_mult = 100 * ping_delay_mult_min / (math.fabs(descent_angle)* 100 / (math.fabs(max_beeping_angle)-math.fabs(min_beeping_angle)))
+                    # WIP Delay calculations need testing!!!
+                    current_delay = 10.0
+                    angle_delay = {
+                        -5:2.0,
+                        -10:1.8,
+                        -20:1.6,
+                        -30:1.4,
+                        -40:1.2,
+                        -50:1.0,
+                        -60:0.75,
+                        -90:0.0
+                    }
+                    for a, d in angle_delay.items():
+                        if descent_angle > a:
+                            current_delay = d
+                            break
+                    ping_delay_mult = current_delay
                 print("Ping Multiplier: " + str(ping_delay_mult))
                 ping_delay_mult = max(ping_delay_mult_min, min(ping_delay_mult_max, ping_delay_mult))
             except:
@@ -1043,7 +1056,7 @@ try:
                         dest_distance_lab.grid(column=3, columnspan=7, row=3, sticky=(N, W, E))
                         dest_heading_d_lab.config(foreground="red")
                     if descent_angle <= -60:
-                        ping_delay_mult = ping_delay_mult_max
+                        ping_delay_mult = ping_delay_mult_min
 
             else:
                 dest_heading_d.set("")
