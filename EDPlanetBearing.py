@@ -1015,7 +1015,7 @@ try:
 
 
         try:
-            descent_angle = - int(math.degrees(math.atan(current_alt / distance_meters)))
+            descent_angle = - int(math.degrees(math.atan(current_alt / distance_surface)))
             print("Angle of Descent: " + str(descent_angle))
 
             try:
@@ -1026,18 +1026,28 @@ try:
                 else:  # Angle calculations for normal flight and supercruise
                     # WIP Delay calculations need testing!!!
                     current_delay = 10.0
-                    angle_delay = {
-                        -5:2.0,
-                        -10:1.8,
-                        -20:1.6,
-                        -30:1.4,
-                        -40:1.2,
-                        -50:1.0,
-                        -60:0.75,
-                        -90:0.0
-                    }
+                    if flag_sc != 0:
+                        angle_delay = {
+                            -5:2.0,
+                            -10:1.8,
+                            -20:1.4,
+                            -30:1.0,
+                            -40:0.75,
+                            -90:0.0
+                        }
+                    else:
+                        angle_delay = {
+                            -5: 2.0,
+                            -10: 1.8,
+                            -20: 1.6,
+                            -30: 1.4,
+                            -40: 1.2,
+                            -50: 1.0,
+                            -60: 0.75,
+                            -90: 0.0
+                        }
                     for a, d in angle_delay.items():
-                        if descent_angle > a:
+                        if descent_angle >= a:
                             current_delay = d
                             break
                     ping_delay_mult = current_delay
