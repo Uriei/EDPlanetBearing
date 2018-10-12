@@ -1,4 +1,4 @@
-AppVer = "v2.6.4"
+AppVer = "v2.6.5"
 
 import datetime
 import os
@@ -249,8 +249,8 @@ try:
         create a tooltip for a given widget
         """
 
-        def __init__(self, widget, text="widget info"):
-            self.waittime = 500  # miliseconds
+        def __init__(self, widget, text="widget info", waittime = 500):
+            self.waittime = waittime
             self.wraplength = 180  # pixels
             self.widget = widget
             self.text = text
@@ -538,8 +538,11 @@ try:
         coords_entry_ttp = createToolTip(coords_entry, "Type destination coordinates")
         if no_open_al:
             ping_cb_ttp = createToolTip(ping_cb, \
-                                        "OpenAl libraries not detected,\n"
-                                        "Audio disabled")
+                                        "OpenAL libraries not detected,\n"
+                                        "Audio is disabled,\n"
+                                        "You can find a download link\n"
+                                        "in my repository's main page.",
+                                        0)
         else:
             ping_cb_ttp = createToolTip(ping_cb, \
                                         "Audio Feedback\n"
