@@ -996,7 +996,7 @@ try:
             else:
                 try:
                     ping_delay_mult = 2.0
-                    if (dst_lat - current_lat_deg < 0.01 and dst_long - current_long_deg < 0.01):
+                    if (dst_lat - current_lat_deg < 0.01 and dst_long - current_long_deg < 0.01 and flag_sc == 0):
                         audioFeedBack.destination_reached()
                 except:
                     print("E.Shutting when destination is reached")
