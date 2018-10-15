@@ -1,4 +1,4 @@
-AppVer = "v2.6.5"
+AppVer = "v2.6.6"
 
 import datetime
 import os
