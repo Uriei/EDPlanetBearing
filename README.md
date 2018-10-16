@@ -7,8 +7,7 @@ This is an app to calculate the heading you need to follow to reach an specific 
 - and show you the angle of descent to reach the destination once certain conditions met: distance available, angle below 0º, etc,
 - and optional audio feedback for the same purpose. This audio feedback has 3 modes, ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio0.png "No Audio Feedback")
  Red (no audio), ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio1.png "Deviation alert only")
- Yellow (deviation alerts only, 45°), and ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio2.png "Constant audio feedback") Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go.<br>
-*I can't test it, but I think this would work even better with 5.1/7.1 systems as it uses 3D positioning for that*
+ Yellow (deviation alerts only, 45°), and ![alt text](https://raw.githubusercontent.com/Uriei/EDPlanetBearing/master/GFX/BMPingAudio2.png "Constant audio feedback") Green (constant audio feedback); this audio feedback will position automatically on the speaker/headset side of the heading you need to go, works in 7.1 sound systems (someone told me it worked, not personally tested).<br>
 
 ***
 #### You can download it from the [Releases tab.](https://github.com/Uriei/EDPlanetBearing/releases/)
