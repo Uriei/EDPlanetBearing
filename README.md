@@ -1,5 +1,5 @@
 # EDPlanetBearing
-# ***Moved to [https://gitlab.com/uriei/EDPlanetBearing](https://gitlab.com/uriei/EDPlanetBearing/blob/master/README.md)***
+# ***EOL***
 
 
 This is an app to calculate the heading you need to follow to reach an specific point giving its coordinates on a planet in Elite Dangerous.
